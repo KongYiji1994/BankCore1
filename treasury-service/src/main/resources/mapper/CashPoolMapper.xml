@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.bankcore.treasury.repository.CashPoolMapper">
+    <resultMap id="CashPoolResult" type="com.bankcore.treasury.model.CashPool">
+        <id property="poolId" column="pool_id"/>
+        <result property="headerAccount" column="header_account"/>
+        <result property="memberAccountsCsv" column="member_accounts"/>
+        <result property="targetBalance" column="target_balance"/>
+        <result property="strategy" column="strategy"/>
+    </resultMap>
+
+    <insert id="insert" parameterType="com.bankcore.treasury.model.CashPool">
+        INSERT INTO cash_pools(pool_id, header_account, member_accounts, target_balance, strategy)
+        VALUES(#{poolId}, #{headerAccount}, #{memberAccountsCsv}, #{targetBalance}, #{strategy})
+    </insert>
+
+    <select id="findById" parameterType="string" resultMap="CashPoolResult">
+        SELECT pool_id, header_account, member_accounts, target_balance, strategy
+        FROM cash_pools
+        WHERE pool_id = #{poolId}
+    </select>
+
+    <select id="findAll" resultMap="CashPoolResult">
+        SELECT pool_id, header_account, member_accounts, target_balance, strategy
+        FROM cash_pools
+        ORDER BY pool_id
+    </select>
+
+    <update id="updateTargetBalance">
+        UPDATE cash_pools
+        SET target_balance = #{targetBalance}
+        WHERE pool_id = #{poolId}
+    </update>
+</mapper>
