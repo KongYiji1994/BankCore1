@@ -30,4 +30,8 @@ public class PaymentRepository {
     public void updateStatus(String instructionId, PaymentStatus status) {
         mapper.updateStatus(instructionId, status.name());
     }
+
+    public void updateRisk(String instructionId, java.math.BigDecimal riskScore, PaymentStatus status) {
+        mapper.updateRisk(instructionId, riskScore, status.name());
+    }
 }

@@ -18,6 +18,10 @@ CREATE TABLE IF NOT EXISTS payments (
     currency VARCHAR(8) NOT NULL,
     amount DECIMAL(18,2) NOT NULL,
     purpose VARCHAR(128) NOT NULL,
+    channel VARCHAR(32) DEFAULT NULL,
+    batch_id VARCHAR(64) DEFAULT NULL,
+    priority INT DEFAULT 5,
+    risk_score DECIMAL(5,2) DEFAULT 0,
     status VARCHAR(32) NOT NULL,
     created_at DATETIME NOT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
@@ -37,10 +41,10 @@ INSERT INTO accounts(account_id, customer_id, currency, balance, available_balan
     ('ACCT-1003', 'CUST-003', 'USD', 120000.00, 120000.00, NOW())
 ON DUPLICATE KEY UPDATE balance=VALUES(balance), available_balance=VALUES(available_balance);
 
-INSERT INTO payments(instruction_id, payer_account, payee_account, currency, amount, purpose, status, created_at) VALUES
-    ('PMT-INIT-1', 'ACCT-1001', 'ACCT-1002', 'CNY', 10000.00, 'Payroll batch', 'INITIATED', NOW()),
-    ('PMT-INIT-2', 'ACCT-1002', 'ACCT-1003', 'USD', 2500.00, 'Vendor settlement', 'RISK_REVIEWED', NOW())
-ON DUPLICATE KEY UPDATE status=VALUES(status);
+INSERT INTO payments(instruction_id, payer_account, payee_account, currency, amount, purpose, channel, batch_id, priority, risk_score, status, created_at) VALUES
+    ('PMT-INIT-1', 'ACCT-1001', 'ACCT-1002', 'CNY', 10000.00, 'Payroll batch', 'H2H', 'BATCH-202401', 4, 15.00, 'INITIATED', NOW()),
+    ('PMT-INIT-2', 'ACCT-1002', 'ACCT-1003', 'USD', 25000.00, 'Vendor settlement FX', 'API', 'BATCH-202402', 2, 38.00, 'IN_RISK_REVIEW', NOW())
+ON DUPLICATE KEY UPDATE status=VALUES(status), risk_score=VALUES(risk_score);
 
 INSERT INTO cash_pools(pool_id, header_account, member_accounts, target_balance, strategy) VALUES
     ('POOL-001', 'ACCT-1001', 'ACCT-1002,ACCT-1003', 800000.00, 'TARGET_BALANCE'),

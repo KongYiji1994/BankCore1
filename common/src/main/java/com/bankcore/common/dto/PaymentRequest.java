@@ -20,6 +20,12 @@ public class PaymentRequest {
     @NotBlank
     private String purpose;
 
+    private String channel;
+
+    private String batchId;
+
+    private Integer priority;
+
     public PaymentRequest() {
     }
 
@@ -30,6 +36,18 @@ public class PaymentRequest {
         this.currency = currency;
         this.amount = amount;
         this.purpose = purpose;
+    }
+
+    public PaymentRequest(String instructionId, String payerAccount, String payeeAccount, String currency, BigDecimal amount, String purpose, String channel, String batchId, Integer priority) {
+        this.instructionId = instructionId;
+        this.payerAccount = payerAccount;
+        this.payeeAccount = payeeAccount;
+        this.currency = currency;
+        this.amount = amount;
+        this.purpose = purpose;
+        this.channel = channel;
+        this.batchId = batchId;
+        this.priority = priority;
     }
 
     public String getInstructionId() {
@@ -78,5 +96,29 @@ public class PaymentRequest {
 
     public void setPurpose(String purpose) {
         this.purpose = purpose;
+    }
+
+    public String getChannel() {
+        return channel;
+    }
+
+    public void setChannel(String channel) {
+        this.channel = channel;
+    }
+
+    public String getBatchId() {
+        return batchId;
+    }
+
+    public void setBatchId(String batchId) {
+        this.batchId = batchId;
+    }
+
+    public Integer getPriority() {
+        return priority;
+    }
+
+    public void setPriority(Integer priority) {
+        this.priority = priority;
     }
 }

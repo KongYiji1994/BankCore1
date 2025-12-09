@@ -38,6 +38,11 @@ Each module is an independent Spring Boot 2.7 application using Java 1.8, MySQL 
 
 The services now use MyBatis + MySQL for persistence with mapper XMLs under each module's `resources/mapper` folder. Datasource defaults point to `jdbc:mysql://localhost:3306/bankcore` with user/password `bankcore`, and you can override them per environment in `application.yml`.
 
+## 强化的实业务逻辑与多线程示例
+- **支付风控+清算并发流水线**：`payment-service` 使用自定义线程池（`paymentTaskExecutor`）驱动 `processAsync`，先并发计算风险评分（金额/币种/优先级等维度叠加），分流到“拒绝”“通过+清算”“大额跨境等待”三类状态，再调度清算适配器模拟落地网联/跨境通道，批量处理时会并行消费多个指令并产出 `PaymentBatchResult` 汇总。
+- **更丰富的支付字段**：指令表新增 `channel`、`batch_id`、`priority`、`risk_score`，可区分银企直联批量代发、API 代收等常见渠道，并记录风控评分结果。
+- **批量处理端点**：`POST /payments/batch/process` 接收指令号列表，利用线程池并行风控 + 清算，按成功、风控拒绝、失败维度统计，模拟银行真实批量任务的吞吐与落地结果反馈。
+
 ## 同步代码到 GitHub
 如果需要将仓库推送到远端（例如 `https://github.com/KongYiji1994/BankCore1`），可按以下步骤操作：
 

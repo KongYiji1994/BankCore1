@@ -12,20 +12,28 @@ public class PaymentInstruction {
     private String currency;
     private BigDecimal amount;
     private String purpose;
+    private String channel;
+    private String batchId;
+    private Integer priority;
+    private BigDecimal riskScore;
     private PaymentStatus status;
     private LocalDateTime createdAt;
 
     public PaymentInstruction() {
     }
 
-    public PaymentInstruction(String instructionId, String payerAccount, String payeeAccount, String currency, BigDecimal amount, String purpose) {
+    public PaymentInstruction(String instructionId, String payerAccount, String payeeAccount, String currency, BigDecimal amount, String purpose, String channel, String batchId, Integer priority) {
         this.instructionId = instructionId;
         this.payerAccount = payerAccount;
         this.payeeAccount = payeeAccount;
         this.currency = currency;
         this.amount = amount;
         this.purpose = purpose;
+        this.channel = channel;
+        this.batchId = batchId;
+        this.priority = priority == null ? 5 : priority;
         this.status = PaymentStatus.INITIATED;
+        this.riskScore = BigDecimal.ZERO;
         this.createdAt = LocalDateTime.now();
     }
 
@@ -75,6 +83,38 @@ public class PaymentInstruction {
 
     public void setPurpose(String purpose) {
         this.purpose = purpose;
+    }
+
+    public String getChannel() {
+        return channel;
+    }
+
+    public void setChannel(String channel) {
+        this.channel = channel;
+    }
+
+    public String getBatchId() {
+        return batchId;
+    }
+
+    public void setBatchId(String batchId) {
+        this.batchId = batchId;
+    }
+
+    public Integer getPriority() {
+        return priority;
+    }
+
+    public void setPriority(Integer priority) {
+        this.priority = priority;
+    }
+
+    public BigDecimal getRiskScore() {
+        return riskScore;
+    }
+
+    public void setRiskScore(BigDecimal riskScore) {
+        this.riskScore = riskScore;
     }
 
     public PaymentStatus getStatus() {

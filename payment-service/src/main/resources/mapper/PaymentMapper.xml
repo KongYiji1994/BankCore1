@@ -8,23 +8,27 @@
         <result property="currency" column="currency"/>
         <result property="amount" column="amount"/>
         <result property="purpose" column="purpose"/>
+        <result property="channel" column="channel"/>
+        <result property="batchId" column="batch_id"/>
+        <result property="priority" column="priority"/>
+        <result property="riskScore" column="risk_score"/>
         <result property="status" column="status" javaType="com.bankcore.common.dto.PaymentStatus"/>
         <result property="createdAt" column="created_at"/>
     </resultMap>
 
     <insert id="insert" parameterType="com.bankcore.payment.model.PaymentInstruction">
-        INSERT INTO payments(instruction_id, payer_account, payee_account, currency, amount, purpose, status, created_at)
-        VALUES(#{instructionId}, #{payerAccount}, #{payeeAccount}, #{currency}, #{amount}, #{purpose}, #{status}, #{createdAt})
+        INSERT INTO payments(instruction_id, payer_account, payee_account, currency, amount, purpose, channel, batch_id, priority, risk_score, status, created_at)
+        VALUES(#{instructionId}, #{payerAccount}, #{payeeAccount}, #{currency}, #{amount}, #{purpose}, #{channel}, #{batchId}, #{priority}, #{riskScore}, #{status}, #{createdAt})
     </insert>
 
     <select id="findById" parameterType="string" resultMap="PaymentResult">
-        SELECT instruction_id, payer_account, payee_account, currency, amount, purpose, status, created_at
+        SELECT instruction_id, payer_account, payee_account, currency, amount, purpose, channel, batch_id, priority, risk_score, status, created_at
         FROM payments
         WHERE instruction_id = #{instructionId}
     </select>
 
     <select id="findAll" resultMap="PaymentResult">
-        SELECT instruction_id, payer_account, payee_account, currency, amount, purpose, status, created_at
+        SELECT instruction_id, payer_account, payee_account, currency, amount, purpose, channel, batch_id, priority, risk_score, status, created_at
         FROM payments
         ORDER BY created_at DESC
     </select>
@@ -32,6 +36,12 @@
     <update id="updateStatus">
         UPDATE payments
         SET status = #{status}
+        WHERE instruction_id = #{instructionId}
+    </update>
+
+    <update id="updateRisk">
+        UPDATE payments
+        SET status = #{status}, risk_score = #{riskScore}
         WHERE instruction_id = #{instructionId}
     </update>
 </mapper>

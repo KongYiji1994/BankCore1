@@ -15,4 +15,8 @@ public interface PaymentMapper {
     List<PaymentInstruction> findAll();
 
     void updateStatus(@Param("instructionId") String instructionId, @Param("status") String status);
+
+    void updateRisk(@Param("instructionId") String instructionId,
+                    @Param("riskScore") java.math.BigDecimal riskScore,
+                    @Param("status") String status);
 }

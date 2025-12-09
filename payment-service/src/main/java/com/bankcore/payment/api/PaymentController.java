@@ -1,5 +1,6 @@
 package com.bankcore.payment.api;
 
+import com.bankcore.common.dto.PaymentBatchResult;
 import com.bankcore.common.dto.PaymentRequest;
 import com.bankcore.payment.model.PaymentInstruction;
 import com.bankcore.payment.service.PaymentService;
@@ -22,6 +23,16 @@ public class PaymentController {
     @PostMapping
     public ResponseEntity<PaymentInstruction> submit(@Valid @RequestBody PaymentRequest request) {
         return ResponseEntity.ok(paymentService.submit(request));
+    }
+
+    @PostMapping("/{instructionId}/process")
+    public ResponseEntity<PaymentInstruction> process(@PathVariable String instructionId) {
+        return ResponseEntity.ok(paymentService.processAsync(instructionId).join());
+    }
+
+    @PostMapping("/batch/process")
+    public ResponseEntity<PaymentBatchResult> processBatch(@RequestBody List<String> instructionIds) {
+        return ResponseEntity.ok(paymentService.processBatch(instructionIds));
     }
 
     @PostMapping("/{instructionId}/risk-approve")
