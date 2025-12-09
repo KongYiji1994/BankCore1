@@ -10,14 +10,25 @@ This repository contains a lightweight implementation of Solution A (企业现�
 - `settlement-batch`: Spring Batch job to generate reconciliation files and detect breaks.
 
 ## Quick start
-Each module is an independent Spring Boot application using Java 17.
+Each module is an independent Spring Boot 2.7 application using Java 1.8, MySQL 8.x, and MyBatis for persistence.
 
-```bash
-mvn -pl account-service spring-boot:run
-mvn -pl payment-service spring-boot:run
-mvn -pl treasury-service spring-boot:run
-mvn -pl settlement-batch spring-boot:run
-```
+1. Start MySQL 8.x locally (recommended: Docker) and load the schema/seed data:
+   ```bash
+   # start MySQL with sample schema automatically loaded
+   docker compose up -d mysql
+
+   # or load the schema manually into an existing instance
+   mysql -u bankcore -p < sql/mysql-schema.sql
+   ```
+   The script creates the `bankcore` schema plus sample accounts, payments, and cash pools.
+
+2. Launch services (update `application.yml` datasource credentials if needed):
+   ```bash
+   mvn -pl account-service spring-boot:run
+   mvn -pl payment-service spring-boot:run
+   mvn -pl treasury-service spring-boot:run
+   mvn -pl settlement-batch spring-boot:run
+   ```
 
 ## Sample APIs
 - Account: create account, query balance, post debit/credit.
@@ -25,7 +36,7 @@ mvn -pl settlement-batch spring-boot:run
 - Treasury: define cash pool, register member accounts, run manual sweep to header account.
 - Settlement Batch: launch a job that consumes payment events and emits a reconciliation summary.
 
-The services use in-memory stores to simplify local demos while keeping domain concepts (幂等、风控、审计) easy to showcase in interviews. Replace in-memory components with real databases, MQ, or caches as needed.
+The services now use MyBatis + MySQL for persistence with mapper XMLs under each module's `resources/mapper` folder. Datasource defaults point to `jdbc:mysql://localhost:3306/bankcore` with user/password `bankcore`, and you can override them per environment in `application.yml`.
 
 ## 同步代码到 GitHub
 如果需要将仓库推送到远端（例如 `https://github.com/KongYiji1994/BankCore1`），可按以下步骤操作：

@@ -3,7 +3,7 @@ package com.bankcore.payment.api;
 import com.bankcore.common.dto.PaymentRequest;
 import com.bankcore.payment.model.PaymentInstruction;
 import com.bankcore.payment.service.PaymentService;
-import jakarta.validation.Valid;
+import javax.validation.Valid;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 

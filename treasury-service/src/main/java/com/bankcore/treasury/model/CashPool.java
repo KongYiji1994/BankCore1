@@ -1,15 +1,19 @@
 package com.bankcore.treasury.model;
 
 import java.math.BigDecimal;
+import java.util.Arrays;
 import java.util.HashSet;
 import java.util.Set;
 
 public class CashPool {
-    private final String poolId;
-    private final String headerAccount;
+    private String poolId;
+    private String headerAccount;
     private final Set<String> memberAccounts = new HashSet<>();
     private BigDecimal targetBalance;
-    private final String strategy;
+    private String strategy;
+
+    public CashPool() {
+    }
 
     public CashPool(String poolId, String headerAccount, Set<String> members, BigDecimal targetBalance, String strategy) {
         this.poolId = poolId;
@@ -23,12 +27,38 @@ public class CashPool {
         return poolId;
     }
 
+    public void setPoolId(String poolId) {
+        this.poolId = poolId;
+    }
+
     public String getHeaderAccount() {
         return headerAccount;
     }
 
+    public void setHeaderAccount(String headerAccount) {
+        this.headerAccount = headerAccount;
+    }
+
     public Set<String> getMemberAccounts() {
         return memberAccounts;
+    }
+
+    public String getMemberAccountsCsv() {
+        return String.join(",", memberAccounts);
+    }
+
+    public void setMemberAccountsCsv(String members) {
+        this.memberAccounts.clear();
+        if (members != null && !members.isEmpty()) {
+            this.memberAccounts.addAll(Arrays.asList(members.split(",")));
+        }
+    }
+
+    public void setMemberAccounts(Set<String> members) {
+        this.memberAccounts.clear();
+        if (members != null) {
+            this.memberAccounts.addAll(members);
+        }
     }
 
     public BigDecimal getTargetBalance() {
@@ -41,5 +71,9 @@ public class CashPool {
 
     public String getStrategy() {
         return strategy;
+    }
+
+    public void setStrategy(String strategy) {
+        this.strategy = strategy;
     }
 }

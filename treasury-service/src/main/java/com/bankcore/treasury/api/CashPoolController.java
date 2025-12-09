@@ -3,7 +3,7 @@ package com.bankcore.treasury.api;
 import com.bankcore.common.dto.CashPoolDefinition;
 import com.bankcore.treasury.model.CashPool;
 import com.bankcore.treasury.service.CashPoolService;
-import jakarta.validation.Valid;
+import javax.validation.Valid;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 

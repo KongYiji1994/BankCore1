@@ -1,15 +1,18 @@
 package com.bankcore.account.model;
 
 import java.math.BigDecimal;
-import java.time.Instant;
+import java.time.LocalDateTime;
 
 public class Account {
-    private final String accountId;
-    private final String customerId;
-    private final String currency;
+    private String accountId;
+    private String customerId;
+    private String currency;
     private BigDecimal balance;
     private BigDecimal availableBalance;
-    private final Instant openedAt;
+    private LocalDateTime openedAt;
+
+    public Account() {
+    }
 
     public Account(String accountId, String customerId, String currency, BigDecimal openingBalance) {
         this.accountId = accountId;
@@ -17,7 +20,7 @@ public class Account {
         this.currency = currency;
         this.balance = openingBalance;
         this.availableBalance = openingBalance;
-        this.openedAt = Instant.now();
+        this.openedAt = LocalDateTime.now();
     }
 
     public synchronized void credit(BigDecimal amount) {
@@ -37,23 +40,47 @@ public class Account {
         return accountId;
     }
 
+    public void setAccountId(String accountId) {
+        this.accountId = accountId;
+    }
+
     public String getCustomerId() {
         return customerId;
+    }
+
+    public void setCustomerId(String customerId) {
+        this.customerId = customerId;
     }
 
     public String getCurrency() {
         return currency;
     }
 
+    public void setCurrency(String currency) {
+        this.currency = currency;
+    }
+
     public BigDecimal getBalance() {
         return balance;
+    }
+
+    public void setBalance(BigDecimal balance) {
+        this.balance = balance;
     }
 
     public BigDecimal getAvailableBalance() {
         return availableBalance;
     }
 
-    public Instant getOpenedAt() {
+    public void setAvailableBalance(BigDecimal availableBalance) {
+        this.availableBalance = availableBalance;
+    }
+
+    public LocalDateTime getOpenedAt() {
         return openedAt;
+    }
+
+    public void setOpenedAt(LocalDateTime openedAt) {
+        this.openedAt = openedAt;
     }
 }

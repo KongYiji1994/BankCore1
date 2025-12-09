@@ -2,9 +2,9 @@ package com.bankcore.account.api;
 
 import com.bankcore.account.service.AccountService;
 import com.bankcore.common.dto.AccountDTO;
-import jakarta.validation.Valid;
-import jakarta.validation.constraints.Min;
-import jakarta.validation.constraints.NotBlank;
+import javax.validation.Valid;
+import javax.validation.constraints.Min;
+import javax.validation.constraints.NotBlank;
 import org.springframework.http.ResponseEntity;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
