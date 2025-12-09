@@ -6,3 +6,9 @@
 .project
 .classpath
 .mvn
+/node_modules
+frontend/node_modules
+frontend/dist
+frontend/.vite
+frontend/.idea
+npm-debug.log*

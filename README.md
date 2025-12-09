@@ -8,6 +8,7 @@ This repository contains a lightweight implementation of Solution A (企业现�
 - `payment-service`: Accepts payment instructions, applies risk checks, and posts to ledger abstraction.
 - `treasury-service`: Manages cash pool structures and executes sweeping/target-balance strategies.
 - `settlement-batch`: Spring Batch job to generate reconciliation files and detect breaks.
+- `frontend`: React + Vite + Ant Design workbench that surfaces account, payment, and cash pool workflows.
 
 ## Quick start
 Each module is an independent Spring Boot 2.7 application using Java 1.8, MySQL 8.x, and MyBatis for persistence.
@@ -30,11 +31,27 @@ Each module is an independent Spring Boot 2.7 application using Java 1.8, MySQL 
    mvn -pl settlement-batch spring-boot:run
    ```
 
+3. Launch the front-end workbench (requires Node.js 18+):
+   ```bash
+   cd frontend
+   cp .env.example .env # adjust backend base URLs if not running locally
+   npm install
+   npm run dev
+   ```
+   The dev server listens on http://localhost:5173 by default and calls the account (8081), payment (8082), and treasury (8083)
+   services.
+
 ## Sample APIs
 - Account: create account, query balance, post debit/credit.
 - Payment: submit transfer order, review status, trigger retry.
 - Treasury: define cash pool, register member accounts, run manual sweep to header account.
 - Settlement Batch: launch a job that consumes payment events and emits a reconciliation summary.
+
+### Front-end pages
+- **Dashboard**：汇总账户余额、风控/清算队列、现金池策略与批次监控，方便演示端到端流量。
+- **账户管理**：创建结算账户、入账/出账交易，实时读取 MyBatis+MySQL 持久化数据。
+- **支付指令**：录入单笔或批量支付，触发多线程风控+清算，支持批次/渠道/优先级字段展示与人工放行/记账。
+- **现金池**：配置 Pool 与成员账户，设置目标余额与策略，手工触发 sweep 场景。
 
 The services now use MyBatis + MySQL for persistence with mapper XMLs under each module's `resources/mapper` folder. Datasource defaults point to `jdbc:mysql://localhost:3306/bankcore` with user/password `bankcore`, and you can override them per environment in `application.yml`.
 
