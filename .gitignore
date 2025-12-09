@@ -1,0 +1,8 @@
+/target
+*/target
+!.mvn/wrapper
+!.github
+.idea
+.project
+.classpath
+.mvn
