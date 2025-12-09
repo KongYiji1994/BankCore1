@@ -12,8 +12,12 @@ This repository contains a lightweight implementation of Solution A (企业现�
 ## Quick start
 Each module is an independent Spring Boot 2.7 application using Java 1.8, MySQL 8.x, and MyBatis for persistence.
 
-1. Load the database schema and seed data:
+1. Start MySQL 8.x locally (recommended: Docker) and load the schema/seed data:
    ```bash
+   # start MySQL with sample schema automatically loaded
+   docker compose up -d mysql
+
+   # or load the schema manually into an existing instance
    mysql -u bankcore -p < sql/mysql-schema.sql
    ```
    The script creates the `bankcore` schema plus sample accounts, payments, and cash pools.
