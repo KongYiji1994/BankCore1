@@ -8,7 +8,18 @@ CREATE TABLE IF NOT EXISTS accounts (
     currency VARCHAR(8) NOT NULL,
     balance DECIMAL(18,2) NOT NULL,
     available_balance DECIMAL(18,2) NOT NULL,
+    frozen_amount DECIMAL(18,2) DEFAULT 0,
+    status VARCHAR(32) DEFAULT 'ACTIVE',
     opened_at DATETIME NOT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS customers (
+    customer_id VARCHAR(64) PRIMARY KEY,
+    name VARCHAR(128) NOT NULL,
+    national_id VARCHAR(32) NOT NULL,
+    onboard_date DATE NOT NULL,
+    risk_level VARCHAR(32) NOT NULL,
+    segment VARCHAR(64) NOT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 CREATE TABLE IF NOT EXISTS payments (

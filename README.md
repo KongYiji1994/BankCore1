@@ -4,10 +4,15 @@ This repository contains a lightweight implementation of Solution A (企业现�
 
 ## Modules
 - `common`: Shared DTOs and value objects used across services.
-- `account-service`: Manages corporate accounts and basic ledger entries.
-- `payment-service`: Accepts payment instructions, applies risk checks, and posts to ledger abstraction.
-- `treasury-service`: Manages cash pool structures and executes sweeping/target-balance strategies.
-- `settlement-batch`: Spring Batch job to generate reconciliation files and detect breaks.
+- `auth-service`: Issues JWT tokens for downstream services; placeholder security gateway.
+- `api-gateway`: Optional entry point to route external traffic to internal services.
+- `customer-service`: Maintains customer KYC and segment data.
+- `account-service`: Manages corporate accounts (multi-currency, freeze/hold amounts, lifecycle status) and basic ledger entries.
+- `payment-service`: Accepts payment instructions, applies risk checks/idempotency/limits, and posts to ledger abstraction.
+- `treasury-service`: Manages cash pool structures, interest, and executes sweeping/target-balance strategies.
+- `risk-service`: Simple risk-rule endpoint for limits/blacklist checks.
+- `reconciliation-service`: Batch job to generate reconciliation files and detect breaks.
+- `notification-service`: Sends outbound notifications (SMS/email/webhook placeholder).
 - `frontend`: React + Vite + Ant Design workbench that surfaces account, payment, and cash pool workflows.
 
 ## Quick start
@@ -25,10 +30,14 @@ Each module is an independent Spring Boot 2.7 application using Java 1.8, MySQL 
 
 2. Launch services (update `application.yml` datasource credentials if needed):
    ```bash
+   mvn -pl auth-service spring-boot:run
+   mvn -pl customer-service spring-boot:run
    mvn -pl account-service spring-boot:run
    mvn -pl payment-service spring-boot:run
    mvn -pl treasury-service spring-boot:run
-   mvn -pl settlement-batch spring-boot:run
+   mvn -pl risk-service spring-boot:run
+   mvn -pl reconciliation-service spring-boot:run
+   mvn -pl notification-service spring-boot:run
    ```
 
 3. Launch the front-end workbench (requires Node.js 18+):
