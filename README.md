@@ -10,7 +10,7 @@ This repository contains a lightweight implementation of Solution A (企业现�
 - `account-service`: Manages corporate accounts (multi-currency, three-way balances, lifecycle status) and basic ledger entries.
 - `payment-service`: Accepts payment instructions, applies risk checks/idempotency/limits, and posts to ledger abstraction.
 - `treasury-service`: Manages cash pool structures, interest, and executes sweeping/target-balance strategies.
-- `risk-service`: Simple risk-rule endpoint for limits/blacklist checks.
+- `risk-service`: Risk rule engine (单笔/单日限额、黑名单) with MyBatis-backed rules table and decision log.
 - `reconciliation-service`: Batch job to generate reconciliation files and detect breaks.
 - `notification-service`: Sends outbound notifications (SMS/email/webhook placeholder).
 - `frontend`: React + Vite + Ant Design workbench that surfaces account, payment, and cash pool workflows.
@@ -26,7 +26,7 @@ Each module is an independent Spring Boot 2.7 application using Java 1.8, MySQL 
    # or load the schema manually into an existing instance
    mysql -u bankcore -p < sql/mysql-schema.sql
    ```
-   The script creates the `bankcore` schema plus sample accounts, payments, and cash pools.
+   The script creates the `bankcore` schema plus sample accounts, payments, cash pools, and default risk rules/blacklist entries.
 
 2. Launch services (update `application.yml` datasource credentials if needed):
    ```bash

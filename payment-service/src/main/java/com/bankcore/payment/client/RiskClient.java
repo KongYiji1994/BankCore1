@@ -17,8 +17,8 @@ public class RiskClient {
         this.riskServiceBaseUrl = riskServiceBaseUrl;
     }
 
-    public RiskDecisionResponse evaluate(BigDecimal amount, String customerId, String channel) {
-        RiskRequest payload = new RiskRequest(amount, customerId, channel);
+    public RiskDecisionResponse evaluate(BigDecimal amount, String customerId, String channel, String payerAccount) {
+        RiskRequest payload = new RiskRequest(amount, customerId, channel, payerAccount);
         return restTemplate.postForObject(riskServiceBaseUrl + "/risk/evaluate", payload, RiskDecisionResponse.class);
     }
 
@@ -26,14 +26,16 @@ public class RiskClient {
         private BigDecimal amount;
         private String customerId;
         private String channel;
+        private String payerAccount;
 
         public RiskRequest() {
         }
 
-        public RiskRequest(BigDecimal amount, String customerId, String channel) {
+        public RiskRequest(BigDecimal amount, String customerId, String channel, String payerAccount) {
             this.amount = amount;
             this.customerId = customerId;
             this.channel = channel;
+            this.payerAccount = payerAccount;
         }
 
         public BigDecimal getAmount() {
@@ -59,11 +61,22 @@ public class RiskClient {
         public void setChannel(String channel) {
             this.channel = channel;
         }
+
+        public String getPayerAccount() {
+            return payerAccount;
+        }
+
+        public void setPayerAccount(String payerAccount) {
+            this.payerAccount = payerAccount;
+        }
     }
 
     public static class RiskDecisionResponse {
         private String decisionId;
         private String level;
+        private String result;
+        private String ruleType;
+        private Long ruleId;
         private String reason;
         private boolean blocked;
 
@@ -81,6 +94,30 @@ public class RiskClient {
 
         public void setLevel(String level) {
             this.level = level;
+        }
+
+        public String getResult() {
+            return result;
+        }
+
+        public void setResult(String result) {
+            this.result = result;
+        }
+
+        public String getRuleType() {
+            return ruleType;
+        }
+
+        public void setRuleType(String ruleType) {
+            this.ruleType = ruleType;
+        }
+
+        public Long getRuleId() {
+            return ruleId;
+        }
+
+        public void setRuleId(Long ruleId) {
+            this.ruleId = ruleId;
         }
 
         public String getReason() {

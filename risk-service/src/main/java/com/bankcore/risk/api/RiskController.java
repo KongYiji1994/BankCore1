@@ -23,7 +23,7 @@ public class RiskController {
 
     @PostMapping("/evaluate")
     public RiskDecision evaluate(@Valid @RequestBody RiskRequest request) {
-        return riskEngineService.evaluate(request.getAmount(), request.getCustomerId(), request.getChannel());
+        return riskEngineService.evaluate(request);
     }
 
     public static class RiskRequest {
@@ -33,6 +33,8 @@ public class RiskController {
         private String customerId;
         @NotBlank
         private String channel;
+        @NotBlank
+        private String payerAccount;
 
         public BigDecimal getAmount() {
             return amount;
@@ -56,6 +58,14 @@ public class RiskController {
 
         public void setChannel(String channel) {
             this.channel = channel;
+        }
+
+        public String getPayerAccount() {
+            return payerAccount;
+        }
+
+        public void setPayerAccount(String payerAccount) {
+            this.payerAccount = payerAccount;
         }
     }
 }

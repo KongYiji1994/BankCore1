@@ -59,10 +59,15 @@ public class PaymentEventListener {
         requestRepository.updateStatus(event.getRequestId(), PaymentRequestStatus.PROCESSING, instruction.getInstructionId(), null);
         paymentRepository.updateStatus(instruction.getInstructionId(), PaymentStatus.IN_RISK_REVIEW);
         try {
-            RiskClient.RiskDecisionResponse decision = riskClient.evaluate(instruction.getAmount(), instruction.getPayerCustomerId(), instruction.getChannel() == null ? "API" : instruction.getChannel());
-            if (decision != null && decision.isBlocked()) {
+            RiskClient.RiskDecisionResponse decision = riskClient.evaluate(instruction.getAmount(), instruction.getPayerCustomerId(), instruction.getChannel() == null ? "API" : instruction.getChannel(), instruction.getPayerAccount());
+            if (decision != null && decision.getResult() != null && "REJECTED".equalsIgnoreCase(decision.getResult())) {
                 paymentRepository.updateStatus(instruction.getInstructionId(), PaymentStatus.RISK_REJECTED);
                 requestRepository.updateStatus(event.getRequestId(), PaymentRequestStatus.SUCCEEDED, instruction.getInstructionId(), decision.getReason());
+                return;
+            }
+            if (decision != null && decision.getResult() != null && "REVIEW".equalsIgnoreCase(decision.getResult())) {
+                paymentRepository.updateStatus(instruction.getInstructionId(), PaymentStatus.IN_RISK_REVIEW);
+                requestRepository.updateStatus(event.getRequestId(), PaymentRequestStatus.PROCESSING, instruction.getInstructionId(), decision.getReason());
                 return;
             }
             BigDecimal score = riskAssessor.evaluate(instruction);

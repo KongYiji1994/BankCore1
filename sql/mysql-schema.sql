@@ -60,6 +60,28 @@ CREATE TABLE IF NOT EXISTS cash_pools (
     strategy VARCHAR(32) NOT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
+CREATE TABLE IF NOT EXISTS risk_rules (
+    id BIGINT PRIMARY KEY AUTO_INCREMENT,
+    name VARCHAR(128) NOT NULL,
+    type VARCHAR(64) NOT NULL,
+    expression VARCHAR(255) DEFAULT NULL,
+    threshold DECIMAL(18,2) DEFAULT NULL,
+    enabled TINYINT(1) DEFAULT 1,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS risk_decision_log (
+    id BIGINT PRIMARY KEY AUTO_INCREMENT,
+    customer_id VARCHAR(64) NOT NULL,
+    payer_account VARCHAR(64) NOT NULL,
+    amount DECIMAL(18,2) NOT NULL,
+    result VARCHAR(16) NOT NULL,
+    rule_type VARCHAR(64),
+    rule_id BIGINT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    INDEX idx_risk_log_customer_date (customer_id, created_at)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
 -- Seed demo data
 INSERT INTO accounts(account_id, customer_id, currency, total_balance, available_balance, frozen_balance, opened_at) VALUES
     ('ACCT-1001', 'CUST-001', 'CNY', 500000.00, 500000.00, 0, NOW()),
@@ -88,3 +110,9 @@ INSERT INTO cash_pools(pool_id, header_account, member_accounts, target_balance,
     ('POOL-001', 'ACCT-1001', 'ACCT-1002,ACCT-1003', 800000.00, 'TARGET_BALANCE'),
     ('POOL-002', 'ACCT-1002', 'ACCT-1001', 150000.00, 'ZERO_BALANCE')
 ON DUPLICATE KEY UPDATE target_balance=VALUES(target_balance);
+
+INSERT INTO risk_rules(name, type, expression, threshold, enabled) VALUES
+    ('Per txn limit 1M', 'LIMIT_PER_TXN', NULL, 1000000.00, 1),
+    ('Daily total 3M', 'LIMIT_DAILY', NULL, 3000000.00, 1),
+    ('Blacklist demo', 'BLACKLIST', 'CUST-003,ACCT-9999', NULL, 1)
+ON DUPLICATE KEY UPDATE threshold=VALUES(threshold), enabled=VALUES(enabled);
