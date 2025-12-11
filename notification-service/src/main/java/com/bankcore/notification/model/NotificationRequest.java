@@ -9,6 +9,7 @@ public class NotificationRequest {
     private String destination;
     @NotBlank
     private String content;
+    private String subject;
 
     public String getChannel() {
         return channel;
@@ -32,5 +33,13 @@ public class NotificationRequest {
 
     public void setContent(String content) {
         this.content = content;
+    }
+
+    public String getSubject() {
+        return subject;
+    }
+
+    public void setSubject(String subject) {
+        this.subject = subject;
     }
 }

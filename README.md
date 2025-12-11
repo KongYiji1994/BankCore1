@@ -12,7 +12,8 @@ This repository contains a lightweight implementation of Solution A (企业现�
 - `treasury-service`: Manages cash pool structures, interest, and executes sweeping/target-balance strategies.
 - `risk-service`: Risk rule engine (单笔/单日限额、黑名单) with MyBatis-backed rules table and decision log.
 - `reconciliation-service`: Handles external reconciliation file upload, compares against internal payments, stores daily summary/break tables, and exposes CSV export APIs.
-- `notification-service`: Sends outbound notifications (SMS/email/webhook placeholder).
+- `notification-service`: Asynchronous notification gateway; consumes RabbitMQ events (支付成功/失败、对账异常) or REST calls and
+  fans out to email (mock SMTP on localhost:1025) or webhook callbacks for企业 ERP 集成。
 - `frontend`: React + Vite + Ant Design workbench that surfaces account, payment, and cash pool workflows.
 
 ## Quick start
@@ -83,6 +84,7 @@ The services now use MyBatis + MySQL for persistence with mapper XMLs under each
 - **幂等性**：`payment-service` 新增 `payment_requests` 表，POST `/payments` 必须携带 `request_id`，若请求重复且已有成功结果则直接返回原指令，处理中则返回处理中状态，失败允许重试并复用同一 `request_id`。
 - **异步+MQ 清算**：提交支付仅做基础校验和持久化，随后将事件写入 RabbitMQ（`payment.events.exchange`/`payment.events.queue`）；消费者串联风控（调用 `risk-service`）+账户冻结/结算（调用 `account-service`），失败自动落入 DLQ，便于面试讲解重试/死信设计。
 - **批量入队**：`POST /payments/batch/process` 将指令号列表入队，快速模拟批量代付/分账调度；可通过 RabbitMQ 控制台观察积压与消费。
+- **通知解耦**：`notification-service` 监听 `notification.events.exchange`，也支持 `POST /notifications/events` 直接投递事件，按 EMAIL/WEBHOOK 异步推送，便于模拟“支付成功回执”、“对账差异报警”场景。
 
 ## 同步代码到 GitHub
 如果需要将仓库推送到远端（例如 `https://github.com/KongYiji1994/BankCore1`），可按以下步骤操作：
