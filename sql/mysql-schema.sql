@@ -52,6 +52,31 @@ CREATE TABLE IF NOT EXISTS payment_requests (
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
+CREATE TABLE IF NOT EXISTS recon_summary (
+    id BIGINT PRIMARY KEY AUTO_INCREMENT,
+    file_name VARCHAR(255) NOT NULL,
+    total_count INT NOT NULL,
+    matched_count INT NOT NULL,
+    internal_only_count INT NOT NULL,
+    external_only_count INT NOT NULL,
+    amount_mismatch_count INT NOT NULL,
+    recon_date DATE NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS recon_break (
+    id BIGINT PRIMARY KEY AUTO_INCREMENT,
+    summary_id BIGINT NOT NULL,
+    instruction_id VARCHAR(64) NOT NULL,
+    external_reference VARCHAR(64) DEFAULT NULL,
+    break_type VARCHAR(32) NOT NULL,
+    internal_amount DECIMAL(18,2) DEFAULT NULL,
+    external_amount DECIMAL(18,2) DEFAULT NULL,
+    currency VARCHAR(8) NOT NULL,
+    remark VARCHAR(255),
+    INDEX idx_recon_summary (summary_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
 CREATE TABLE IF NOT EXISTS cash_pools (
     pool_id VARCHAR(64) PRIMARY KEY,
     header_account VARCHAR(64) NOT NULL,
@@ -114,6 +139,16 @@ INSERT INTO payments(request_id, instruction_id, payer_account, payee_account, p
     ('REQ-PMT-INIT-1', 'PMT-INIT-1', 'ACCT-1001', 'ACCT-1002', 'CUST-001', 'NORMAL', 'CNY', 10000.00, 'Payroll batch', 'H2H', 'BATCH-202401', 4, 15.00, 'PENDING', NOW()),
     ('REQ-PMT-INIT-2', 'PMT-INIT-2', 'ACCT-1002', 'ACCT-1003', 'CUST-002', 'RISKY', 'USD', 25000.00, 'Vendor settlement FX', 'API', 'BATCH-202402', 2, 38.00, 'IN_RISK_REVIEW', NOW())
 ON DUPLICATE KEY UPDATE status=VALUES(status), risk_score=VALUES(risk_score), payer_customer_status=VALUES(payer_customer_status);
+
+INSERT INTO recon_summary(file_name, total_count, matched_count, internal_only_count, external_only_count, amount_mismatch_count, recon_date)
+VALUES
+    ('seed-recon.csv', 2, 1, 1, 0, 0, CURDATE())
+ON DUPLICATE KEY UPDATE matched_count=VALUES(matched_count);
+
+INSERT INTO recon_break(summary_id, instruction_id, external_reference, break_type, internal_amount, external_amount, currency, remark)
+SELECT id, 'PMT-INIT-2', NULL, 'INTERNAL_ONLY', 25000.00, NULL, 'USD', 'Seed internal-only break'
+FROM recon_summary WHERE file_name = 'seed-recon.csv'
+ON DUPLICATE KEY UPDATE break_type=VALUES(break_type);
 
 INSERT INTO payment_requests(request_id, payment_instruction_id, status, message)
 VALUES

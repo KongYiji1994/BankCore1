@@ -11,7 +11,7 @@ This repository contains a lightweight implementation of Solution A (企业现�
 - `payment-service`: Accepts payment instructions, applies risk checks/idempotency/limits, and posts to ledger abstraction.
 - `treasury-service`: Manages cash pool structures, interest, and executes sweeping/target-balance strategies.
 - `risk-service`: Risk rule engine (单笔/单日限额、黑名单) with MyBatis-backed rules table and decision log.
-- `reconciliation-service`: Batch job to generate reconciliation files and detect breaks.
+- `reconciliation-service`: Handles external reconciliation file upload, compares against internal payments, stores daily summary/break tables, and exposes CSV export APIs.
 - `notification-service`: Sends outbound notifications (SMS/email/webhook placeholder).
 - `frontend`: React + Vite + Ant Design workbench that surfaces account, payment, and cash pool workflows.
 
@@ -39,7 +39,7 @@ Each module is an independent Spring Boot 2.7 application using Java 1.8, MySQL 
    mvn -pl reconciliation-service spring-boot:run
    mvn -pl notification-service spring-boot:run
    ```
-   Default ports: account 8081, customer 8082, payment 8083, treasury 8084.
+   Default ports: account 8081, customer 8082, payment 8083, treasury 8084, reconciliation 8087.
 
 3. Launch the front-end workbench (requires Node.js 18+):
    ```bash
@@ -61,7 +61,15 @@ Each module is an independent Spring Boot 2.7 application using Java 1.8, MySQL 
 - Account: create account, query balances, freeze/unfreeze funds, settle outgoing payments, and close zero-balance accounts.
 - Payment: submit transfer order with request-level idempotency, review status, trigger retry；在提交时会根据付款账户所属客户的 KYC 状态（NORMAL/RISKY/BLOCKED）自动阻断或进入风控复核。
 - Treasury: define cash pool (PHYSICAL/NOTIONAL) with three-way balances, set daily interest rate, trigger manual sweep or accrual, and rely on nightly scheduled sweeps plus 23:30 interest posting.
-- Settlement Batch: launch a job that consumes payment events and emits a reconciliation summary.
+- Reconciliation: `POST /recon/file/upload` to ingest external CSV对账文件（instruction_id/external_ref/payer_account/payee_account/currency/amount），自动匹配 `payments` 表生成 `MATCHED/INTERNAL_ONLY/EXTERNAL_ONLY/AMOUNT_MISMATCH`，并可通过 `GET /recon/summary/{id}/export` 导出差异 CSV 给运营复核。
+
+Sample CSV for upload (header required):
+```
+instruction_id,external_ref,payer_account,payee_account,currency,amount
+PMT-INIT-1,EXT-202401-001,ACCT-1001,ACCT-1002,CNY,10000.00
+PMT-INIT-3,EXT-202401-002,ACCT-1003,ACCT-1002,USD,5000.00
+```
+- Reconciliation: upload external statement CSV (`instruction_id,external_ref,payer_account,payee_account,currency,amount`), compare against the `payments` table, and export mismatch CSVs. Daily batch metadata is persisted to `recon_summary`/`recon_break`.
 
 ### Front-end pages
 - **Dashboard**：汇总账户余额、风控/清算队列、现金池策略与批次监控，方便演示端到端流量。
