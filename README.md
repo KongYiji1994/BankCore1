@@ -39,6 +39,7 @@ Each module is an independent Spring Boot 2.7 application using Java 1.8, MySQL 
    mvn -pl reconciliation-service spring-boot:run
    mvn -pl notification-service spring-boot:run
    ```
+   Default ports: account 8081, customer 8082, payment 8083, treasury 8084.
 
 3. Launch the front-end workbench (requires Node.js 18+):
    ```bash
@@ -47,8 +48,8 @@ Each module is an independent Spring Boot 2.7 application using Java 1.8, MySQL 
    npm install
    npm run dev
    ```
-   The dev server listens on http://localhost:5173 by default and calls the account (8081), payment (8082), and treasury (8083)
-   services.
+   The dev server listens on http://localhost:5173 by default and calls the account (8081), payment (8083), and treasury (8084)
+   services; adjust `.env` if you run services on different ports.
 
 ## Build notes
 - The root `bankcore-parent` now inherits from `spring-boot-starter-parent 2.7.18`, which provides managed plugin/dependency versions so modules build cleanly with Java 8.
@@ -56,8 +57,9 @@ Each module is an independent Spring Boot 2.7 application using Java 1.8, MySQL 
 - If your environment uses an internal Maven proxy, configure it in `~/.m2/settings.xml` to resolve Spring Boot/MyBatis/MySQL artifacts.
 
 ## Sample APIs
+- Customer/KYC: onboard enterprise customers with credit code +联系人信息，支持查询客户风控状态，并可查询名下账户列表。
 - Account: create account, query balances, freeze/unfreeze funds, settle outgoing payments, and close zero-balance accounts.
-- Payment: submit transfer order, review status, trigger retry.
+- Payment: submit transfer order, review status, trigger retry；在提交时会根据付款账户所属客户的 KYC 状态（NORMAL/RISKY/BLOCKED）自动阻断或进入风控复核。
 - Treasury: define cash pool, register member accounts, run manual sweep to header account.
 - Settlement Batch: launch a job that consumes payment events and emits a reconciliation summary.
 

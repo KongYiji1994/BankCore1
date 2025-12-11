@@ -26,13 +26,16 @@ public class CustomerService {
     }
 
     @Transactional
-    public Customer createCustomer(String name, String nationalId, String segment) {
+    public Customer createCustomer(String name, String creditCode, String contactName, String contactPhone, String segment, String riskLevel, String status) {
         Customer customer = new Customer();
         customer.setCustomerId(UUID.randomUUID().toString());
         customer.setName(name);
-        customer.setNationalId(nationalId);
+        customer.setCreditCode(creditCode);
+        customer.setContactName(contactName);
+        customer.setContactPhone(contactPhone);
         customer.setSegment(segment);
-        customer.setRiskLevel("LOW");
+        customer.setRiskLevel(riskLevel == null ? "LOW" : riskLevel);
+        customer.setStatus(status == null ? "NORMAL" : status);
         customer.setOnboardDate(LocalDate.now());
         mapper.insert(customer);
         return customer;

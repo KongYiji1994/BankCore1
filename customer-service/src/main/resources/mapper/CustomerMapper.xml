@@ -4,22 +4,25 @@
     <resultMap id="CustomerMap" type="com.bankcore.customer.model.Customer">
         <id column="customer_id" property="customerId"/>
         <result column="name" property="name"/>
-        <result column="national_id" property="nationalId"/>
+        <result column="credit_code" property="creditCode"/>
+        <result column="contact_name" property="contactName"/>
+        <result column="contact_phone" property="contactPhone"/>
         <result column="onboard_date" property="onboardDate"/>
         <result column="risk_level" property="riskLevel"/>
+        <result column="status" property="status"/>
         <result column="segment" property="segment"/>
     </resultMap>
 
     <select id="findAll" resultMap="CustomerMap">
-        SELECT customer_id, name, national_id, onboard_date, risk_level, segment FROM customers
+        SELECT customer_id, name, credit_code, contact_name, contact_phone, onboard_date, risk_level, status, segment FROM customers
     </select>
 
     <select id="findById" parameterType="string" resultMap="CustomerMap">
-        SELECT customer_id, name, national_id, onboard_date, risk_level, segment FROM customers WHERE customer_id = #{id}
+        SELECT customer_id, name, credit_code, contact_name, contact_phone, onboard_date, risk_level, status, segment FROM customers WHERE customer_id = #{id}
     </select>
 
     <insert id="insert" parameterType="com.bankcore.customer.model.Customer">
-        INSERT INTO customers(customer_id, name, national_id, onboard_date, risk_level, segment)
-        VALUES(#{customerId}, #{name}, #{nationalId}, #{onboardDate}, #{riskLevel}, #{segment})
+        INSERT INTO customers(customer_id, name, credit_code, contact_name, contact_phone, onboard_date, risk_level, status, segment)
+        VALUES(#{customerId}, #{name}, #{creditCode}, #{contactName}, #{contactPhone}, #{onboardDate}, #{riskLevel}, #{status}, #{segment})
     </insert>
 </mapper>

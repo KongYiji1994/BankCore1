@@ -16,3 +16,5 @@ management:
         include: "health,info"
 server:
   port: 8082
+account-service:
+  url: http://localhost:8081

@@ -12,6 +12,8 @@ public interface AccountMapper {
 
     List<Account> findAll();
 
+    List<Account> findByCustomer(@Param("customerId") String customerId);
+
     void insert(Account account);
 
     void update(Account account);

@@ -22,6 +22,10 @@ public class AccountRepository {
         return mapper.findAll();
     }
 
+    public List<Account> findByCustomer(String customerId) {
+        return mapper.findByCustomer(customerId);
+    }
+
     public void save(Account account) {
         mapper.insert(account);
     }

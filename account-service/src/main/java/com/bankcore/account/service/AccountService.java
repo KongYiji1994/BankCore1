@@ -75,6 +75,10 @@ public class AccountService {
         return repository.findAll().stream().map(this::toDto).collect(Collectors.toList());
     }
 
+    public List<AccountDTO> listByCustomer(String customerId) {
+        return repository.findByCustomer(customerId).stream().map(this::toDto).collect(Collectors.toList());
+    }
+
     private Account findAccount(String accountId) {
         return findAccount(accountId, false);
     }

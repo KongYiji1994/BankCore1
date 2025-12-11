@@ -16,9 +16,12 @@ CREATE TABLE IF NOT EXISTS accounts (
 CREATE TABLE IF NOT EXISTS customers (
     customer_id VARCHAR(64) PRIMARY KEY,
     name VARCHAR(128) NOT NULL,
-    national_id VARCHAR(32) NOT NULL,
+    credit_code VARCHAR(32) NOT NULL,
+    contact_name VARCHAR(64) NOT NULL,
+    contact_phone VARCHAR(32) NOT NULL,
     onboard_date DATE NOT NULL,
     risk_level VARCHAR(32) NOT NULL,
+    status VARCHAR(16) NOT NULL DEFAULT 'NORMAL',
     segment VARCHAR(64) NOT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
@@ -26,6 +29,8 @@ CREATE TABLE IF NOT EXISTS payments (
     instruction_id VARCHAR(64) PRIMARY KEY,
     payer_account VARCHAR(64) NOT NULL,
     payee_account VARCHAR(64) NOT NULL,
+    payer_customer_id VARCHAR(64) NOT NULL,
+    payer_customer_status VARCHAR(16) NOT NULL,
     currency VARCHAR(8) NOT NULL,
     amount DECIMAL(18,2) NOT NULL,
     purpose VARCHAR(128) NOT NULL,
@@ -52,10 +57,16 @@ INSERT INTO accounts(account_id, customer_id, currency, total_balance, available
     ('ACCT-1003', 'CUST-003', 'USD', 120000.00, 120000.00, 0, NOW())
 ON DUPLICATE KEY UPDATE total_balance=VALUES(total_balance), available_balance=VALUES(available_balance), frozen_balance=VALUES(frozen_balance);
 
-INSERT INTO payments(instruction_id, payer_account, payee_account, currency, amount, purpose, channel, batch_id, priority, risk_score, status, created_at) VALUES
-    ('PMT-INIT-1', 'ACCT-1001', 'ACCT-1002', 'CNY', 10000.00, 'Payroll batch', 'H2H', 'BATCH-202401', 4, 15.00, 'INITIATED', NOW()),
-    ('PMT-INIT-2', 'ACCT-1002', 'ACCT-1003', 'USD', 25000.00, 'Vendor settlement FX', 'API', 'BATCH-202402', 2, 38.00, 'IN_RISK_REVIEW', NOW())
-ON DUPLICATE KEY UPDATE status=VALUES(status), risk_score=VALUES(risk_score);
+INSERT INTO customers(customer_id, name, credit_code, contact_name, contact_phone, onboard_date, risk_level, status, segment) VALUES
+    ('CUST-001', '华夏科创有限公司', '91310000MA1K123X1', '张经理', '13800001111', CURDATE(), 'LOW', 'NORMAL', 'CORP'),
+    ('CUST-002', '联鑫国际贸易集团', '91310000MA1K234X2', '李总', '13800002222', CURDATE(), 'MEDIUM', 'RISKY', 'CORP'),
+    ('CUST-003', '远航供应链科技', '91310000MA1K345X3', '王财务', '13800003333', CURDATE(), 'HIGH', 'BLOCKED', 'SME')
+ON DUPLICATE KEY UPDATE credit_code=VALUES(credit_code), status=VALUES(status), risk_level=VALUES(risk_level);
+
+INSERT INTO payments(instruction_id, payer_account, payee_account, payer_customer_id, payer_customer_status, currency, amount, purpose, channel, batch_id, priority, risk_score, status, created_at) VALUES
+    ('PMT-INIT-1', 'ACCT-1001', 'ACCT-1002', 'CUST-001', 'NORMAL', 'CNY', 10000.00, 'Payroll batch', 'H2H', 'BATCH-202401', 4, 15.00, 'INITIATED', NOW()),
+    ('PMT-INIT-2', 'ACCT-1002', 'ACCT-1003', 'CUST-002', 'RISKY', 'USD', 25000.00, 'Vendor settlement FX', 'API', 'BATCH-202402', 2, 38.00, 'IN_RISK_REVIEW', NOW())
+ON DUPLICATE KEY UPDATE status=VALUES(status), risk_score=VALUES(risk_score), payer_customer_status=VALUES(payer_customer_status);
 
 INSERT INTO cash_pools(pool_id, header_account, member_accounts, target_balance, strategy) VALUES
     ('POOL-001', 'ACCT-1001', 'ACCT-1002,ACCT-1003', 800000.00, 'TARGET_BALANCE'),

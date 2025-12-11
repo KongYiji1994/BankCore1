@@ -9,6 +9,8 @@ public class PaymentInstruction {
     private String instructionId;
     private String payerAccount;
     private String payeeAccount;
+    private String payerCustomerId;
+    private String payerCustomerStatus;
     private String currency;
     private BigDecimal amount;
     private String purpose;
@@ -22,17 +24,19 @@ public class PaymentInstruction {
     public PaymentInstruction() {
     }
 
-    public PaymentInstruction(String instructionId, String payerAccount, String payeeAccount, String currency, BigDecimal amount, String purpose, String channel, String batchId, Integer priority) {
+    public PaymentInstruction(String instructionId, String payerAccount, String payeeAccount, String payerCustomerId, String payerCustomerStatus, String currency, BigDecimal amount, String purpose, String channel, String batchId, Integer priority, PaymentStatus initialStatus) {
         this.instructionId = instructionId;
         this.payerAccount = payerAccount;
         this.payeeAccount = payeeAccount;
+        this.payerCustomerId = payerCustomerId;
+        this.payerCustomerStatus = payerCustomerStatus;
         this.currency = currency;
         this.amount = amount;
         this.purpose = purpose;
         this.channel = channel;
         this.batchId = batchId;
         this.priority = priority == null ? 5 : priority;
-        this.status = PaymentStatus.INITIATED;
+        this.status = initialStatus == null ? PaymentStatus.INITIATED : initialStatus;
         this.riskScore = BigDecimal.ZERO;
         this.createdAt = LocalDateTime.now();
     }
@@ -59,6 +63,22 @@ public class PaymentInstruction {
 
     public void setPayeeAccount(String payeeAccount) {
         this.payeeAccount = payeeAccount;
+    }
+
+    public String getPayerCustomerId() {
+        return payerCustomerId;
+    }
+
+    public void setPayerCustomerId(String payerCustomerId) {
+        this.payerCustomerId = payerCustomerId;
+    }
+
+    public String getPayerCustomerStatus() {
+        return payerCustomerStatus;
+    }
+
+    public void setPayerCustomerStatus(String payerCustomerStatus) {
+        this.payerCustomerStatus = payerCustomerStatus;
     }
 
     public String getCurrency() {

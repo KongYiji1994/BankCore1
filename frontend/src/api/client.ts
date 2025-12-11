@@ -14,10 +14,10 @@ export const accountClient = createClient(
 
 export const paymentClient = createClient(
   import.meta.env.VITE_PAYMENT_BASE_URL,
-  'http://localhost:8082'
+  'http://localhost:8083'
 );
 
 export const treasuryClient = createClient(
   import.meta.env.VITE_TREASURY_BASE_URL,
-  'http://localhost:8083'
+  'http://localhost:8084'
 );

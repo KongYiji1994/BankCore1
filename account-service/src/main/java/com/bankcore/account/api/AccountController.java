@@ -30,7 +30,10 @@ public class AccountController {
     }
 
     @GetMapping
-    public ResponseEntity<List<AccountDTO>> list() {
+    public ResponseEntity<List<AccountDTO>> list(@RequestParam(value = "customerId", required = false) String customerId) {
+        if (customerId != null && customerId.trim().length() > 0) {
+            return ResponseEntity.ok(service.listByCustomer(customerId));
+        }
         return ResponseEntity.ok(service.list());
     }
 

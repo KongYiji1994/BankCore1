@@ -24,6 +24,13 @@
         ORDER BY opened_at DESC
     </select>
 
+    <select id="findByCustomer" parameterType="string" resultMap="AccountResult">
+        SELECT account_id, customer_id, currency, total_balance, available_balance, frozen_balance, status, opened_at
+        FROM accounts
+        WHERE customer_id = #{customerId}
+        ORDER BY opened_at DESC
+    </select>
+
     <insert id="insert" parameterType="com.bankcore.account.model.Account">
         INSERT INTO accounts(account_id, customer_id, currency, total_balance, available_balance, frozen_balance, status, opened_at)
         VALUES(#{accountId}, #{customerId}, #{currency}, #{totalBalance}, #{availableBalance}, #{frozenBalance}, #{status}, #{openedAt})

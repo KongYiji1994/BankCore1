@@ -10,12 +10,12 @@ import java.util.List;
 
 @Mapper
 public interface CustomerMapper {
-    @Select("SELECT customer_id, name, national_id, onboard_date, risk_level, segment FROM customers")
+    @Select("SELECT customer_id, name, credit_code, contact_name, contact_phone, onboard_date, risk_level, status, segment FROM customers")
     List<Customer> findAll();
 
-    @Select("SELECT customer_id, name, national_id, onboard_date, risk_level, segment FROM customers WHERE customer_id = #{id}")
+    @Select("SELECT customer_id, name, credit_code, contact_name, contact_phone, onboard_date, risk_level, status, segment FROM customers WHERE customer_id = #{id}")
     Customer findById(@Param("id") String id);
 
-    @Insert("INSERT INTO customers(customer_id, name, national_id, onboard_date, risk_level, segment) VALUES(#{customerId}, #{name}, #{nationalId}, #{onboardDate}, #{riskLevel}, #{segment})")
+    @Insert("INSERT INTO customers(customer_id, name, credit_code, contact_name, contact_phone, onboard_date, risk_level, status, segment) VALUES(#{customerId}, #{name}, #{creditCode}, #{contactName}, #{contactPhone}, #{onboardDate}, #{riskLevel}, #{status}, #{segment})")
     void insert(Customer customer);
 }
