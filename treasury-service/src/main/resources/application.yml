@@ -1,0 +1,17 @@
+spring:
+  application:
+    name: treasury-service
+  datasource:
+    url: jdbc:mysql://localhost:3306/bankcore?useSSL=false&serverTimezone=UTC
+    username: bankcore
+    password: bankcore
+    driver-class-name: com.mysql.cj.jdbc.Driver
+mybatis:
+  mapper-locations: classpath:mapper/*.xml
+server:
+  port: 8084
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
