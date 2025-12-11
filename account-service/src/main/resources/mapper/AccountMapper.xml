@@ -5,32 +5,36 @@
         <id property="accountId" column="account_id"/>
         <result property="customerId" column="customer_id"/>
         <result property="currency" column="currency"/>
-        <result property="balance" column="balance"/>
+        <result property="totalBalance" column="total_balance"/>
         <result property="availableBalance" column="available_balance"/>
+        <result property="frozenBalance" column="frozen_balance"/>
+        <result property="status" column="status"/>
         <result property="openedAt" column="opened_at"/>
     </resultMap>
 
     <select id="findById" parameterType="string" resultMap="AccountResult">
-        SELECT account_id, customer_id, currency, balance, available_balance, opened_at
+        SELECT account_id, customer_id, currency, total_balance, available_balance, frozen_balance, status, opened_at
         FROM accounts
         WHERE account_id = #{accountId}
     </select>
 
     <select id="findAll" resultMap="AccountResult">
-        SELECT account_id, customer_id, currency, balance, available_balance, opened_at
+        SELECT account_id, customer_id, currency, total_balance, available_balance, frozen_balance, status, opened_at
         FROM accounts
         ORDER BY opened_at DESC
     </select>
 
     <insert id="insert" parameterType="com.bankcore.account.model.Account">
-        INSERT INTO accounts(account_id, customer_id, currency, balance, available_balance, opened_at)
-        VALUES(#{accountId}, #{customerId}, #{currency}, #{balance}, #{availableBalance}, #{openedAt})
+        INSERT INTO accounts(account_id, customer_id, currency, total_balance, available_balance, frozen_balance, status, opened_at)
+        VALUES(#{accountId}, #{customerId}, #{currency}, #{totalBalance}, #{availableBalance}, #{frozenBalance}, #{status}, #{openedAt})
     </insert>
 
     <update id="update" parameterType="com.bankcore.account.model.Account">
         UPDATE accounts
-        SET balance = #{balance},
-            available_balance = #{availableBalance}
+        SET total_balance = #{totalBalance},
+            available_balance = #{availableBalance},
+            frozen_balance = #{frozenBalance},
+            status = #{status}
         WHERE account_id = #{accountId}
     </update>
 </mapper>

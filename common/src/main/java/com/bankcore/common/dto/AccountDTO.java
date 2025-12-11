@@ -14,20 +14,28 @@ public class AccountDTO {
     private String currency;
     @NotNull
     @Min(0)
-    private BigDecimal balance;
+    private BigDecimal totalBalance;
     @NotNull
     @Min(0)
     private BigDecimal availableBalance;
+    @NotNull
+    @Min(0)
+    private BigDecimal frozenBalance;
+    @NotBlank
+    private String status;
 
     public AccountDTO() {
     }
 
-    public AccountDTO(String accountId, String customerId, String currency, BigDecimal balance, BigDecimal availableBalance) {
+    public AccountDTO(String accountId, String customerId, String currency, BigDecimal totalBalance, BigDecimal availableBalance,
+                      BigDecimal frozenBalance, String status) {
         this.accountId = accountId;
         this.customerId = customerId;
         this.currency = currency;
-        this.balance = balance;
+        this.totalBalance = totalBalance;
         this.availableBalance = availableBalance;
+        this.frozenBalance = frozenBalance;
+        this.status = status;
     }
 
     public String getAccountId() {
@@ -54,12 +62,12 @@ public class AccountDTO {
         this.currency = currency;
     }
 
-    public BigDecimal getBalance() {
-        return balance;
+    public BigDecimal getTotalBalance() {
+        return totalBalance;
     }
 
-    public void setBalance(BigDecimal balance) {
-        this.balance = balance;
+    public void setTotalBalance(BigDecimal totalBalance) {
+        this.totalBalance = totalBalance;
     }
 
     public BigDecimal getAvailableBalance() {
@@ -68,5 +76,21 @@ public class AccountDTO {
 
     public void setAvailableBalance(BigDecimal availableBalance) {
         this.availableBalance = availableBalance;
+    }
+
+    public BigDecimal getFrozenBalance() {
+        return frozenBalance;
+    }
+
+    public void setFrozenBalance(BigDecimal frozenBalance) {
+        this.frozenBalance = frozenBalance;
+    }
+
+    public String getStatus() {
+        return status;
+    }
+
+    public void setStatus(String status) {
+        this.status = status;
     }
 }

@@ -2,8 +2,10 @@ export interface Account {
   accountId: string;
   customerId: string;
   currency: string;
-  balance: number;
+  totalBalance: number;
   availableBalance: number;
+  frozenBalance: number;
+  status: string;
 }
 
 export type PaymentStatus =

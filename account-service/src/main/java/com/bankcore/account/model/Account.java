@@ -7,9 +7,9 @@ public class Account {
     private String accountId;
     private String customerId;
     private String currency;
-    private BigDecimal balance;
     private BigDecimal availableBalance;
-    private BigDecimal frozenAmount;
+    private BigDecimal totalBalance;
+    private BigDecimal frozenBalance;
     private String status;
     private LocalDateTime openedAt;
 
@@ -20,40 +20,65 @@ public class Account {
         this.accountId = accountId;
         this.customerId = customerId;
         this.currency = currency;
-        this.balance = openingBalance;
+        this.totalBalance = openingBalance;
         this.availableBalance = openingBalance;
-        this.frozenAmount = BigDecimal.ZERO;
+        this.frozenBalance = BigDecimal.ZERO;
         this.status = "ACTIVE";
         this.openedAt = LocalDateTime.now();
     }
 
     public synchronized void credit(BigDecimal amount) {
-        balance = balance.add(amount);
+        ensureOperable();
+        totalBalance = totalBalance.add(amount);
         availableBalance = availableBalance.add(amount);
     }
 
-    public synchronized void debit(BigDecimal amount) {
-        if (availableBalance.compareTo(amount) < 0) {
-            throw new IllegalArgumentException("Insufficient available balance");
-        }
-        balance = balance.subtract(amount);
-        availableBalance = availableBalance.subtract(amount);
-    }
-
-    public synchronized void freeze(BigDecimal amount) {
+    public synchronized void prepareDebit(BigDecimal amount) {
+        ensureDebitAllowed();
         if (availableBalance.compareTo(amount) < 0) {
             throw new IllegalArgumentException("Insufficient available balance to freeze");
         }
         availableBalance = availableBalance.subtract(amount);
-        frozenAmount = frozenAmount.add(amount);
+        frozenBalance = frozenBalance.add(amount);
     }
 
-    public synchronized void unfreeze(BigDecimal amount) {
-        if (frozenAmount.compareTo(amount) < 0) {
+    public synchronized void settleDebit(BigDecimal amount) {
+        ensureDebitAllowed();
+        if (frozenBalance.compareTo(amount) < 0) {
+            throw new IllegalArgumentException("Insufficient frozen balance to settle");
+        }
+        totalBalance = totalBalance.subtract(amount);
+        frozenBalance = frozenBalance.subtract(amount);
+    }
+
+    public synchronized void releaseFrozen(BigDecimal amount) {
+        ensureOperable();
+        if (frozenBalance.compareTo(amount) < 0) {
             throw new IllegalArgumentException("Insufficient frozen balance to release");
         }
-        frozenAmount = frozenAmount.subtract(amount);
+        frozenBalance = frozenBalance.subtract(amount);
         availableBalance = availableBalance.add(amount);
+    }
+
+    public synchronized void close() {
+        if (totalBalance.compareTo(BigDecimal.ZERO) != 0 || availableBalance.compareTo(BigDecimal.ZERO) != 0 || frozenBalance
+                .compareTo(BigDecimal.ZERO) != 0) {
+            throw new IllegalStateException("Account must be fully settled before closing");
+        }
+        status = "CLOSED";
+    }
+
+    private void ensureOperable() {
+        if ("CLOSED".equalsIgnoreCase(status)) {
+            throw new IllegalStateException("Account is closed");
+        }
+    }
+
+    private void ensureDebitAllowed() {
+        ensureOperable();
+        if ("FROZEN".equalsIgnoreCase(status)) {
+            throw new IllegalStateException("Account is frozen for debit operations");
+        }
     }
 
     public String getAccountId() {
@@ -80,14 +105,6 @@ public class Account {
         this.currency = currency;
     }
 
-    public BigDecimal getBalance() {
-        return balance;
-    }
-
-    public void setBalance(BigDecimal balance) {
-        this.balance = balance;
-    }
-
     public BigDecimal getAvailableBalance() {
         return availableBalance;
     }
@@ -96,12 +113,20 @@ public class Account {
         this.availableBalance = availableBalance;
     }
 
-    public BigDecimal getFrozenAmount() {
-        return frozenAmount;
+    public BigDecimal getTotalBalance() {
+        return totalBalance;
     }
 
-    public void setFrozenAmount(BigDecimal frozenAmount) {
-        this.frozenAmount = frozenAmount;
+    public void setTotalBalance(BigDecimal totalBalance) {
+        this.totalBalance = totalBalance;
+    }
+
+    public BigDecimal getFrozenBalance() {
+        return frozenBalance;
+    }
+
+    public void setFrozenBalance(BigDecimal frozenBalance) {
+        this.frozenBalance = frozenBalance;
     }
 
     public String getStatus() {

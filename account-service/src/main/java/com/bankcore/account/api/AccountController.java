@@ -2,7 +2,6 @@ package com.bankcore.account.api;
 
 import com.bankcore.account.service.AccountService;
 import com.bankcore.common.dto.AccountDTO;
-import javax.validation.Valid;
 import javax.validation.constraints.Min;
 import javax.validation.constraints.NotBlank;
 import org.springframework.http.ResponseEntity;
@@ -47,6 +46,26 @@ public class AccountController {
 
     @PostMapping("/{accountId}/debit")
     public ResponseEntity<AccountDTO> debit(@PathVariable String accountId, @RequestParam @Min(1) BigDecimal amount) {
-        return ResponseEntity.ok(service.debit(accountId, amount));
+        return ResponseEntity.ok(service.freezeAmount(accountId, amount));
+    }
+
+    @PostMapping("/{accountId}/freeze")
+    public ResponseEntity<AccountDTO> freeze(@PathVariable String accountId, @RequestParam @Min(1) BigDecimal amount) {
+        return ResponseEntity.ok(service.freezeAmount(accountId, amount));
+    }
+
+    @PostMapping("/{accountId}/settle")
+    public ResponseEntity<AccountDTO> settle(@PathVariable String accountId, @RequestParam @Min(1) BigDecimal amount) {
+        return ResponseEntity.ok(service.settle(accountId, amount));
+    }
+
+    @PostMapping("/{accountId}/unfreeze")
+    public ResponseEntity<AccountDTO> unfreeze(@PathVariable String accountId, @RequestParam @Min(1) BigDecimal amount) {
+        return ResponseEntity.ok(service.unfreeze(accountId, amount));
+    }
+
+    @PostMapping("/{accountId}/close")
+    public ResponseEntity<AccountDTO> close(@PathVariable String accountId) {
+        return ResponseEntity.ok(service.close(accountId));
     }
 }

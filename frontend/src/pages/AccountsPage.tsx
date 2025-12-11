@@ -12,12 +12,12 @@ import {
   Table,
   message,
 } from 'antd';
-import { createAccount, creditAccount, debitAccount, listAccounts } from '../api/account';
+import { createAccount, creditAccount, debitAccount, listAccounts, settleAccount, unfreezeAccount } from '../api/account';
 import type { Account } from '../types';
 
 interface ActionModalState {
   open: boolean;
-  type: 'credit' | 'debit';
+  type: 'credit' | 'debit' | 'settle' | 'unfreeze';
   accountId?: string;
   amount?: number;
 }
@@ -70,9 +70,15 @@ export const AccountsPage = () => {
       if (actionModal.type === 'credit') {
         await creditAccount(actionModal.accountId, actionModal.amount);
         message.success('入账成功');
+      } else if (actionModal.type === 'settle') {
+        await settleAccount(actionModal.accountId, actionModal.amount);
+        message.success('清算扣减成功');
+      } else if (actionModal.type === 'unfreeze') {
+        await unfreezeAccount(actionModal.accountId, actionModal.amount);
+        message.success('解冻成功');
       } else {
         await debitAccount(actionModal.accountId, actionModal.amount);
-        message.success('出账成功');
+        message.success('冻结资金成功');
       }
       refresh();
     } catch (err) {
@@ -87,23 +93,34 @@ export const AccountsPage = () => {
     { title: '账户', dataIndex: 'accountId' },
     { title: '客户号', dataIndex: 'customerId' },
     { title: '币种', dataIndex: 'currency' },
+    { title: '状态', dataIndex: 'status' },
     {
-      title: '余额 / 可用',
-      render: (_: unknown, record: Account) => `${record.balance} / ${record.availableBalance}`,
+      title: '总余额 / 可用 / 冻结',
+      render: (_: unknown, record: Account) =>
+        `${record.totalBalance} / ${record.availableBalance} / ${record.frozenBalance}`,
     },
     {
       title: '操作',
       render: (_: unknown, record: Account) => (
-        <div style={{ display: 'flex', gap: 8 }}>
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
           <Button size="small" onClick={() => setActionModal({ open: true, type: 'credit', accountId: record.accountId })}>
             入账
+          </Button>
+          <Button size="small" onClick={() => setActionModal({ open: true, type: 'debit', accountId: record.accountId })}>
+            付款冻结
           </Button>
           <Button
             danger
             size="small"
-            onClick={() => setActionModal({ open: true, type: 'debit', accountId: record.accountId })}
+            onClick={() => setActionModal({ open: true, type: 'settle', accountId: record.accountId })}
           >
-            出账
+            清算扣减
+          </Button>
+          <Button
+            size="small"
+            onClick={() => setActionModal({ open: true, type: 'unfreeze', accountId: record.accountId })}
+          >
+            取消/解冻
           </Button>
         </div>
       ),
@@ -146,7 +163,12 @@ export const AccountsPage = () => {
       </Col>
 
       <Modal
-        title={actionModal.type === 'credit' ? '账户入账' : '账户出账'}
+        title={{
+          credit: '账户入账',
+          debit: '付款冻结',
+          settle: '清算扣减',
+          unfreeze: '取消/解冻',
+        }[actionModal.type]}
         open={actionModal.open}
         onOk={onConfirmAction}
         onCancel={() => setActionModal({ open: false, type: 'credit' })}

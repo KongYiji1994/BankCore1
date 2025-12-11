@@ -5,11 +5,11 @@ USE bankcore;
 CREATE TABLE IF NOT EXISTS accounts (
     account_id VARCHAR(64) PRIMARY KEY,
     customer_id VARCHAR(64) NOT NULL,
-    currency VARCHAR(8) NOT NULL,
-    balance DECIMAL(18,2) NOT NULL,
+    currency VARCHAR(3) NOT NULL,
+    total_balance DECIMAL(18,2) NOT NULL,
     available_balance DECIMAL(18,2) NOT NULL,
-    frozen_amount DECIMAL(18,2) DEFAULT 0,
-    status VARCHAR(32) DEFAULT 'ACTIVE',
+    frozen_balance DECIMAL(18,2) DEFAULT 0,
+    status VARCHAR(16) DEFAULT 'ACTIVE',
     opened_at DATETIME NOT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
@@ -46,11 +46,11 @@ CREATE TABLE IF NOT EXISTS cash_pools (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 -- Seed demo data
-INSERT INTO accounts(account_id, customer_id, currency, balance, available_balance, opened_at) VALUES
-    ('ACCT-1001', 'CUST-001', 'CNY', 500000.00, 500000.00, NOW()),
-    ('ACCT-1002', 'CUST-002', 'CNY', 300000.00, 300000.00, NOW()),
-    ('ACCT-1003', 'CUST-003', 'USD', 120000.00, 120000.00, NOW())
-ON DUPLICATE KEY UPDATE balance=VALUES(balance), available_balance=VALUES(available_balance);
+INSERT INTO accounts(account_id, customer_id, currency, total_balance, available_balance, frozen_balance, opened_at) VALUES
+    ('ACCT-1001', 'CUST-001', 'CNY', 500000.00, 500000.00, 0, NOW()),
+    ('ACCT-1002', 'CUST-002', 'CNY', 300000.00, 300000.00, 0, NOW()),
+    ('ACCT-1003', 'CUST-003', 'USD', 120000.00, 120000.00, 0, NOW())
+ON DUPLICATE KEY UPDATE total_balance=VALUES(total_balance), available_balance=VALUES(available_balance), frozen_balance=VALUES(frozen_balance);
 
 INSERT INTO payments(instruction_id, payer_account, payee_account, currency, amount, purpose, channel, batch_id, priority, risk_score, status, created_at) VALUES
     ('PMT-INIT-1', 'ACCT-1001', 'ACCT-1002', 'CNY', 10000.00, 'Payroll batch', 'H2H', 'BATCH-202401', 4, 15.00, 'INITIATED', NOW()),

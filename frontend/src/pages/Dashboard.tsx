@@ -36,9 +36,10 @@ export const Dashboard = () => {
   }, []);
 
   const totals = useMemo(() => {
-    const totalBalance = accounts.reduce((sum, a) => sum + Number(a.balance || 0), 0);
+    const totalBalance = accounts.reduce((sum, a) => sum + Number(a.totalBalance || 0), 0);
     const available = accounts.reduce((sum, a) => sum + Number(a.availableBalance || 0), 0);
-    return { totalBalance, available };
+    const frozen = accounts.reduce((sum, a) => sum + Number(a.frozenBalance || 0), 0);
+    return { totalBalance, available, frozen };
   }, [accounts]);
 
   const riskQueue = payments.filter((p) => riskStatuses.includes(p.status as any));
@@ -55,6 +56,7 @@ export const Dashboard = () => {
           <Card title="账户总览" bordered>
             <Statistic title="总余额" value={totals.totalBalance} precision={2} suffix="CNY" />
             <Statistic title="可用余额" value={totals.available} precision={2} suffix="CNY" style={{ marginTop: 12 }} />
+            <Statistic title="冻结资金" value={totals.frozen} precision={2} suffix="CNY" style={{ marginTop: 12 }} />
             <Statistic title="账户数量" value={accounts.length} style={{ marginTop: 12 }} />
           </Card>
         </Col>

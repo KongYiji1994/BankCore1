@@ -30,3 +30,17 @@ export const debitAccount = async (accountId: string, amount: number): Promise<A
   });
   return data;
 };
+
+export const settleAccount = async (accountId: string, amount: number): Promise<Account> => {
+  const { data } = await accountClient.post<Account>(`/accounts/${accountId}/settle`, null, {
+    params: { amount },
+  });
+  return data;
+};
+
+export const unfreezeAccount = async (accountId: string, amount: number): Promise<Account> => {
+  const { data } = await accountClient.post<Account>(`/accounts/${accountId}/unfreeze`, null, {
+    params: { amount },
+  });
+  return data;
+};

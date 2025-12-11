@@ -7,7 +7,7 @@ This repository contains a lightweight implementation of Solution A (企业现�
 - `auth-service`: Issues JWT tokens for downstream services; placeholder security gateway.
 - `api-gateway`: Optional entry point to route external traffic to internal services.
 - `customer-service`: Maintains customer KYC and segment data.
-- `account-service`: Manages corporate accounts (multi-currency, freeze/hold amounts, lifecycle status) and basic ledger entries.
+- `account-service`: Manages corporate accounts (multi-currency, three-way balances, lifecycle status) and basic ledger entries.
 - `payment-service`: Accepts payment instructions, applies risk checks/idempotency/limits, and posts to ledger abstraction.
 - `treasury-service`: Manages cash pool structures, interest, and executes sweeping/target-balance strategies.
 - `risk-service`: Simple risk-rule endpoint for limits/blacklist checks.
@@ -56,7 +56,7 @@ Each module is an independent Spring Boot 2.7 application using Java 1.8, MySQL 
 - If your environment uses an internal Maven proxy, configure it in `~/.m2/settings.xml` to resolve Spring Boot/MyBatis/MySQL artifacts.
 
 ## Sample APIs
-- Account: create account, query balance, post debit/credit.
+- Account: create account, query balances, freeze/unfreeze funds, settle outgoing payments, and close zero-balance accounts.
 - Payment: submit transfer order, review status, trigger retry.
 - Treasury: define cash pool, register member accounts, run manual sweep to header account.
 - Settlement Batch: launch a job that consumes payment events and emits a reconciliation summary.
