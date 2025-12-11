@@ -14,3 +14,12 @@ services:
     command: --character-set-server=utf8mb4 --collation-server=utf8mb4_unicode_ci
     volumes:
       - ./sql/mysql-schema.sql:/docker-entrypoint-initdb.d/mysql-schema.sql:ro
+  rabbitmq:
+    image: rabbitmq:3.12-management
+    container_name: bankcore-rabbitmq
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    environment:
+      RABBITMQ_DEFAULT_USER: guest
+      RABBITMQ_DEFAULT_PASS: guest

@@ -18,10 +18,10 @@ This repository contains a lightweight implementation of Solution A (企业现�
 ## Quick start
 Each module is an independent Spring Boot 2.7 application using Java 1.8, MySQL 8.x, and MyBatis for persistence.
 
-1. Start MySQL 8.x locally (recommended: Docker) and load the schema/seed data:
+1. Start MySQL 8.x and RabbitMQ locally (recommended: Docker) and load the schema/seed data:
    ```bash
-   # start MySQL with sample schema automatically loaded
-   docker compose up -d mysql
+   # start MySQL + RabbitMQ with sample schema automatically loaded
+   docker compose up -d mysql rabbitmq
 
    # or load the schema manually into an existing instance
    mysql -u bankcore -p < sql/mysql-schema.sql
@@ -59,22 +59,22 @@ Each module is an independent Spring Boot 2.7 application using Java 1.8, MySQL 
 ## Sample APIs
 - Customer/KYC: onboard enterprise customers with credit code +联系人信息，支持查询客户风控状态，并可查询名下账户列表。
 - Account: create account, query balances, freeze/unfreeze funds, settle outgoing payments, and close zero-balance accounts.
-- Payment: submit transfer order, review status, trigger retry；在提交时会根据付款账户所属客户的 KYC 状态（NORMAL/RISKY/BLOCKED）自动阻断或进入风控复核。
+- Payment: submit transfer order with request-level idempotency, review status, trigger retry；在提交时会根据付款账户所属客户的 KYC 状态（NORMAL/RISKY/BLOCKED）自动阻断或进入风控复核。
 - Treasury: define cash pool, register member accounts, run manual sweep to header account.
 - Settlement Batch: launch a job that consumes payment events and emits a reconciliation summary.
 
 ### Front-end pages
 - **Dashboard**：汇总账户余额、风控/清算队列、现金池策略与批次监控，方便演示端到端流量。
 - **账户管理**：创建结算账户、入账/出账交易，实时读取 MyBatis+MySQL 持久化数据。
-- **支付指令**：录入单笔或批量支付，触发多线程风控+清算，支持批次/渠道/优先级字段展示与人工放行/记账。
+- **支付指令**：录入单笔或批量支付，触发 MQ 异步风控+清算，支持批次/渠道/优先级字段展示与人工放行/记账。
 - **现金池**：配置 Pool 与成员账户，设置目标余额与策略，手工触发 sweep 场景。
 
 The services now use MyBatis + MySQL for persistence with mapper XMLs under each module's `resources/mapper` folder. Datasource defaults point to `jdbc:mysql://localhost:3306/bankcore` with user/password `bankcore`, and you can override them per environment in `application.yml`.
 
-## 强化的实业务逻辑与多线程示例
-- **支付风控+清算并发流水线**：`payment-service` 使用自定义线程池（`paymentTaskExecutor`）驱动 `processAsync`，先并发计算风险评分（金额/币种/优先级等维度叠加），分流到“拒绝”“通过+清算”“大额跨境等待”三类状态，再调度清算适配器模拟落地网联/跨境通道，批量处理时会并行消费多个指令并产出 `PaymentBatchResult` 汇总。
-- **更丰富的支付字段**：指令表新增 `channel`、`batch_id`、`priority`、`risk_score`，可区分银企直联批量代发、API 代收等常见渠道，并记录风控评分结果。
-- **批量处理端点**：`POST /payments/batch/process` 接收指令号列表，利用线程池并行风控 + 清算，按成功、风控拒绝、失败维度统计，模拟银行真实批量任务的吞吐与落地结果反馈。
+## 强化的实业务逻辑与异步支付示例
+- **幂等性**：`payment-service` 新增 `payment_requests` 表，POST `/payments` 必须携带 `request_id`，若请求重复且已有成功结果则直接返回原指令，处理中则返回处理中状态，失败允许重试并复用同一 `request_id`。
+- **异步+MQ 清算**：提交支付仅做基础校验和持久化，随后将事件写入 RabbitMQ（`payment.events.exchange`/`payment.events.queue`）；消费者串联风控（调用 `risk-service`）+账户冻结/结算（调用 `account-service`），失败自动落入 DLQ，便于面试讲解重试/死信设计。
+- **批量入队**：`POST /payments/batch/process` 将指令号列表入队，快速模拟批量代付/分账调度；可通过 RabbitMQ 控制台观察积压与消费。
 
 ## 同步代码到 GitHub
 如果需要将仓库推送到远端（例如 `https://github.com/KongYiji1994/BankCore1`），可按以下步骤操作：

@@ -6,6 +6,7 @@ import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
 public class PaymentInstruction {
+    private String requestId;
     private String instructionId;
     private String payerAccount;
     private String payeeAccount;
@@ -24,7 +25,8 @@ public class PaymentInstruction {
     public PaymentInstruction() {
     }
 
-    public PaymentInstruction(String instructionId, String payerAccount, String payeeAccount, String payerCustomerId, String payerCustomerStatus, String currency, BigDecimal amount, String purpose, String channel, String batchId, Integer priority, PaymentStatus initialStatus) {
+    public PaymentInstruction(String requestId, String instructionId, String payerAccount, String payeeAccount, String payerCustomerId, String payerCustomerStatus, String currency, BigDecimal amount, String purpose, String channel, String batchId, Integer priority, PaymentStatus initialStatus) {
+        this.requestId = requestId;
         this.instructionId = instructionId;
         this.payerAccount = payerAccount;
         this.payeeAccount = payeeAccount;
@@ -36,9 +38,17 @@ public class PaymentInstruction {
         this.channel = channel;
         this.batchId = batchId;
         this.priority = priority == null ? 5 : priority;
-        this.status = initialStatus == null ? PaymentStatus.INITIATED : initialStatus;
+        this.status = initialStatus == null ? PaymentStatus.PENDING : initialStatus;
         this.riskScore = BigDecimal.ZERO;
         this.createdAt = LocalDateTime.now();
+    }
+
+    public String getRequestId() {
+        return requestId;
+    }
+
+    public void setRequestId(String requestId) {
+        this.requestId = requestId;
     }
 
     public String getInstructionId() {

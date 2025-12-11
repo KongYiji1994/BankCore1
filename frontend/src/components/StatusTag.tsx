@@ -2,11 +2,12 @@ import { Tag } from 'antd';
 import type { PaymentStatus } from '../types';
 
 const statusColor: Record<PaymentStatus, string> = {
+  PENDING: 'default',
   INITIATED: 'default',
-  PENDING_RISK_APPROVAL: 'processing',
+  IN_RISK_REVIEW: 'processing',
   RISK_REJECTED: 'error',
   RISK_APPROVED: 'cyan',
-  PENDING_CLEARING: 'gold',
+  CLEARING: 'gold',
   POSTED: 'green',
   FAILED: 'volcano',
 };

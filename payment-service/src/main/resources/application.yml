@@ -19,3 +19,16 @@ account-service:
   url: http://localhost:8081
 customer-service:
   url: http://localhost:8082
+risk-service:
+  url: http://localhost:8086
+rabbitmq:
+  host: localhost
+  port: 5672
+  username: guest
+  password: guest
+payment:
+  messaging:
+    exchange: payment.events.exchange
+    queue: payment.events.queue
+    routingKey: payment.events
+    dlq: payment.events.dlq

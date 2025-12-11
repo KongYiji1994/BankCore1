@@ -2,6 +2,7 @@ import { paymentClient } from './client';
 import type { PaymentBatchResult, PaymentInstruction } from '../types';
 
 export interface PaymentRequest {
+  requestId?: string;
   instructionId: string;
   payerAccount: string;
   payeeAccount: string;
@@ -14,7 +15,8 @@ export interface PaymentRequest {
 }
 
 export const submitPayment = async (payload: PaymentRequest): Promise<PaymentInstruction> => {
-  const { data } = await paymentClient.post<PaymentInstruction>('/payments', payload);
+  const requestPayload = { ...payload, requestId: payload.requestId || `REQ-${Date.now()}` };
+  const { data } = await paymentClient.post<PaymentInstruction>('/payments', requestPayload);
   return data;
 };
 

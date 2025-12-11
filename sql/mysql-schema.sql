@@ -26,6 +26,7 @@ CREATE TABLE IF NOT EXISTS customers (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 CREATE TABLE IF NOT EXISTS payments (
+    request_id VARCHAR(64) NOT NULL,
     instruction_id VARCHAR(64) PRIMARY KEY,
     payer_account VARCHAR(64) NOT NULL,
     payee_account VARCHAR(64) NOT NULL,
@@ -40,6 +41,15 @@ CREATE TABLE IF NOT EXISTS payments (
     risk_score DECIMAL(5,2) DEFAULT 0,
     status VARCHAR(32) NOT NULL,
     created_at DATETIME NOT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS payment_requests (
+    request_id VARCHAR(64) PRIMARY KEY,
+    payment_instruction_id VARCHAR(64),
+    status VARCHAR(32) NOT NULL,
+    message VARCHAR(255),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 CREATE TABLE IF NOT EXISTS cash_pools (
@@ -63,10 +73,16 @@ INSERT INTO customers(customer_id, name, credit_code, contact_name, contact_phon
     ('CUST-003', '远航供应链科技', '91310000MA1K345X3', '王财务', '13800003333', CURDATE(), 'HIGH', 'BLOCKED', 'SME')
 ON DUPLICATE KEY UPDATE credit_code=VALUES(credit_code), status=VALUES(status), risk_level=VALUES(risk_level);
 
-INSERT INTO payments(instruction_id, payer_account, payee_account, payer_customer_id, payer_customer_status, currency, amount, purpose, channel, batch_id, priority, risk_score, status, created_at) VALUES
-    ('PMT-INIT-1', 'ACCT-1001', 'ACCT-1002', 'CUST-001', 'NORMAL', 'CNY', 10000.00, 'Payroll batch', 'H2H', 'BATCH-202401', 4, 15.00, 'INITIATED', NOW()),
-    ('PMT-INIT-2', 'ACCT-1002', 'ACCT-1003', 'CUST-002', 'RISKY', 'USD', 25000.00, 'Vendor settlement FX', 'API', 'BATCH-202402', 2, 38.00, 'IN_RISK_REVIEW', NOW())
+INSERT INTO payments(request_id, instruction_id, payer_account, payee_account, payer_customer_id, payer_customer_status, currency, amount, purpose, channel, batch_id, priority, risk_score, status, created_at) VALUES
+    ('REQ-PMT-INIT-1', 'PMT-INIT-1', 'ACCT-1001', 'ACCT-1002', 'CUST-001', 'NORMAL', 'CNY', 10000.00, 'Payroll batch', 'H2H', 'BATCH-202401', 4, 15.00, 'PENDING', NOW()),
+    ('REQ-PMT-INIT-2', 'PMT-INIT-2', 'ACCT-1002', 'ACCT-1003', 'CUST-002', 'RISKY', 'USD', 25000.00, 'Vendor settlement FX', 'API', 'BATCH-202402', 2, 38.00, 'IN_RISK_REVIEW', NOW())
 ON DUPLICATE KEY UPDATE status=VALUES(status), risk_score=VALUES(risk_score), payer_customer_status=VALUES(payer_customer_status);
+
+INSERT INTO payment_requests(request_id, payment_instruction_id, status, message)
+VALUES
+    ('REQ-PMT-INIT-1', 'PMT-INIT-1', 'PENDING', 'seed request'),
+    ('REQ-PMT-INIT-2', 'PMT-INIT-2', 'PENDING', 'seed request')
+ON DUPLICATE KEY UPDATE status=VALUES(status), payment_instruction_id=VALUES(payment_instruction_id);
 
 INSERT INTO cash_pools(pool_id, header_account, member_accounts, target_balance, strategy) VALUES
     ('POOL-001', 'ACCT-1001', 'ACCT-1002,ACCT-1003', 800000.00, 'TARGET_BALANCE'),

@@ -9,15 +9,17 @@ export interface Account {
 }
 
 export type PaymentStatus =
+  | 'PENDING'
   | 'INITIATED'
-  | 'PENDING_RISK_APPROVAL'
+  | 'IN_RISK_REVIEW'
   | 'RISK_REJECTED'
   | 'RISK_APPROVED'
-  | 'PENDING_CLEARING'
+  | 'CLEARING'
   | 'POSTED'
   | 'FAILED';
 
 export interface PaymentInstruction {
+  requestId: string;
   instructionId: string;
   payerAccount: string;
   payeeAccount: string;
@@ -33,10 +35,11 @@ export interface PaymentInstruction {
 }
 
 export interface PaymentBatchResult {
-  successes: number;
-  riskRejected: number;
-  failures: number;
-  processedIds: string[];
+  total: number;
+  succeeded: number;
+  rejected: number;
+  failed: number;
+  failedIds: string[];
 }
 
 export interface CashPool {

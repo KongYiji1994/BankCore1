@@ -7,6 +7,8 @@ import java.math.BigDecimal;
 
 public class PaymentRequest {
     @NotBlank
+    private String requestId;
+    @NotBlank
     private String instructionId;
     @NotBlank
     private String payerAccount;
@@ -29,7 +31,8 @@ public class PaymentRequest {
     public PaymentRequest() {
     }
 
-    public PaymentRequest(String instructionId, String payerAccount, String payeeAccount, String currency, BigDecimal amount, String purpose) {
+    public PaymentRequest(String requestId, String instructionId, String payerAccount, String payeeAccount, String currency, BigDecimal amount, String purpose) {
+        this.requestId = requestId;
         this.instructionId = instructionId;
         this.payerAccount = payerAccount;
         this.payeeAccount = payeeAccount;
@@ -38,7 +41,8 @@ public class PaymentRequest {
         this.purpose = purpose;
     }
 
-    public PaymentRequest(String instructionId, String payerAccount, String payeeAccount, String currency, BigDecimal amount, String purpose, String channel, String batchId, Integer priority) {
+    public PaymentRequest(String requestId, String instructionId, String payerAccount, String payeeAccount, String currency, BigDecimal amount, String purpose, String channel, String batchId, Integer priority) {
+        this.requestId = requestId;
         this.instructionId = instructionId;
         this.payerAccount = payerAccount;
         this.payeeAccount = payeeAccount;
@@ -48,6 +52,14 @@ public class PaymentRequest {
         this.channel = channel;
         this.batchId = batchId;
         this.priority = priority;
+    }
+
+    public String getRequestId() {
+        return requestId;
+    }
+
+    public void setRequestId(String requestId) {
+        this.requestId = requestId;
     }
 
     public String getInstructionId() {

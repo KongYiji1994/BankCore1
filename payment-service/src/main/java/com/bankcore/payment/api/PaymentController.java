@@ -27,7 +27,7 @@ public class PaymentController {
 
     @PostMapping("/{instructionId}/process")
     public ResponseEntity<PaymentInstruction> process(@PathVariable String instructionId) {
-        return ResponseEntity.ok(paymentService.processAsync(instructionId).join());
+        return ResponseEntity.ok(paymentService.enqueueForProcessing(instructionId));
     }
 
     @PostMapping("/batch/process")

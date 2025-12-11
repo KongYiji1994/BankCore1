@@ -7,42 +7,53 @@ import com.bankcore.common.dto.PaymentStatus;
 import com.bankcore.payment.client.AccountClient;
 import com.bankcore.payment.client.CustomerClient;
 import com.bankcore.payment.model.PaymentInstruction;
+import com.bankcore.payment.model.PaymentRequestRecord;
+import com.bankcore.payment.model.PaymentRequestStatus;
 import com.bankcore.payment.repository.PaymentRepository;
-import java.math.BigDecimal;
+import com.bankcore.payment.repository.PaymentRequestRepository;
+import com.bankcore.payment.service.messaging.PaymentEventPublisher;
 import java.util.Collections;
 import java.util.List;
-import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
-import org.springframework.beans.factory.annotation.Qualifier;
-import org.springframework.core.task.TaskExecutor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 @Service
 public class PaymentService {
     private final PaymentRepository repository;
-    private final PaymentRiskAssessor riskAssessor;
-    private final PaymentClearingAdapter clearingAdapter;
-    private final TaskExecutor paymentTaskExecutor;
+    private final PaymentRequestRepository requestRepository;
     private final AccountClient accountClient;
     private final CustomerClient customerClient;
+    private final PaymentEventPublisher paymentEventPublisher;
 
     public PaymentService(PaymentRepository repository,
-                          PaymentRiskAssessor riskAssessor,
-                          PaymentClearingAdapter clearingAdapter,
-                          @Qualifier("paymentTaskExecutor") TaskExecutor paymentTaskExecutor,
+                          PaymentRequestRepository requestRepository,
                           AccountClient accountClient,
-                          CustomerClient customerClient) {
+                          CustomerClient customerClient,
+                          PaymentEventPublisher paymentEventPublisher) {
         this.repository = repository;
-        this.riskAssessor = riskAssessor;
-        this.clearingAdapter = clearingAdapter;
-        this.paymentTaskExecutor = paymentTaskExecutor;
+        this.requestRepository = requestRepository;
         this.accountClient = accountClient;
         this.customerClient = customerClient;
+        this.paymentEventPublisher = paymentEventPublisher;
     }
 
     @Transactional
     public PaymentInstruction submit(PaymentRequest request) {
+        PaymentRequestRecord existing = requestRepository.findByRequestId(request.getRequestId()).orElse(null);
+        if (existing != null) {
+            if (existing.getStatus() == PaymentRequestStatus.SUCCEEDED && existing.getPaymentInstructionId() != null) {
+                return repository.findById(existing.getPaymentInstructionId())
+                        .orElseThrow(() -> new IllegalStateException("Payment previously succeeded but record missing"));
+            }
+            if (existing.getStatus() == PaymentRequestStatus.PENDING || existing.getStatus() == PaymentRequestStatus.PROCESSING) {
+                if (existing.getPaymentInstructionId() != null) {
+                    return repository.findById(existing.getPaymentInstructionId())
+                            .orElseThrow(() -> new IllegalStateException("Processing payment not found"));
+                }
+                throw new IllegalStateException("Payment request is already being processed");
+            }
+        }
         AccountDTO payerAccount = accountClient.getAccount(request.getPayerAccount());
         if (payerAccount == null) {
             throw new IllegalArgumentException("Payer account not found");
@@ -55,10 +66,8 @@ public class PaymentService {
         if ("BLOCKED".equalsIgnoreCase(payerStatus)) {
             throw new IllegalStateException("Payer customer is blocked");
         }
-        PaymentStatus initialStatus = "RISKY".equalsIgnoreCase(payerStatus)
-                ? PaymentStatus.IN_RISK_REVIEW
-                : PaymentStatus.INITIATED;
         PaymentInstruction instruction = new PaymentInstruction(
+                request.getRequestId(),
                 request.getInstructionId(),
                 request.getPayerAccount(),
                 request.getPayeeAccount(),
@@ -70,71 +79,34 @@ public class PaymentService {
                 request.getChannel(),
                 request.getBatchId(),
                 request.getPriority(),
-                initialStatus);
+                PaymentStatus.PENDING);
         repository.save(instruction);
+        if (existing == null) {
+            requestRepository.createPending(request.getRequestId(), instruction.getInstructionId());
+        } else {
+            requestRepository.updateStatus(request.getRequestId(), PaymentRequestStatus.PENDING, instruction.getInstructionId(), "replay after failure");
+        }
+        paymentEventPublisher.publishAsync(request.getRequestId(), instruction.getInstructionId());
         return instruction;
     }
 
-    public CompletableFuture<PaymentInstruction> processAsync(String instructionId) {
+    public PaymentInstruction enqueueForProcessing(String instructionId) {
         PaymentInstruction instruction = repository.findById(instructionId)
                 .orElseThrow(() -> new IllegalArgumentException("Instruction not found"));
-        repository.updateStatus(instructionId, PaymentStatus.IN_RISK_REVIEW);
-        instruction.setStatus(PaymentStatus.IN_RISK_REVIEW);
-
-        CompletableFuture<PaymentInstruction> riskFuture = CompletableFuture.supplyAsync(() -> {
-            BigDecimal score = riskAssessor.evaluate(instruction);
-            PaymentStatus nextStatus = score.compareTo(BigDecimal.valueOf(80)) >= 0
-                    ? PaymentStatus.RISK_REJECTED
-                    : PaymentStatus.RISK_APPROVED;
-            repository.updateRisk(instructionId, score, nextStatus);
-            instruction.setRiskScore(score);
-            instruction.setStatus(nextStatus);
-            return instruction;
-        }, paymentTaskExecutor);
-
-        return riskFuture.thenCompose(result -> {
-            if (result.getStatus() == PaymentStatus.RISK_REJECTED) {
-                return CompletableFuture.completedFuture(result);
-            }
-            return CompletableFuture.supplyAsync(() -> {
-                PaymentStatus clearingStatus = clearingAdapter.dispatch(result);
-                if (clearingStatus == PaymentStatus.POSTED) {
-                    repository.updateStatus(instructionId, PaymentStatus.POSTED);
-                } else if (clearingStatus == PaymentStatus.CLEARING) {
-                    repository.updateStatus(instructionId, PaymentStatus.CLEARING);
-                } else {
-                    repository.updateStatus(instructionId, PaymentStatus.FAILED);
-                }
-                return repository.findById(instructionId).orElse(result);
-            }, paymentTaskExecutor);
-        }).exceptionally(ex -> {
-            repository.updateStatus(instructionId, PaymentStatus.FAILED);
-            return repository.findById(instructionId).orElse(instruction);
-        });
+        requestRepository.updateStatus(instruction.getRequestId(), PaymentRequestStatus.PENDING, instructionId, "manual enqueue");
+        paymentEventPublisher.publishAsync(instruction.getRequestId(), instructionId);
+        return instruction;
     }
 
     public PaymentBatchResult processBatch(List<String> instructionIds) {
         if (instructionIds == null || instructionIds.isEmpty()) {
             return new PaymentBatchResult(0, 0, 0, 0, Collections.emptyList());
         }
-        List<CompletableFuture<PaymentInstruction>> futures = instructionIds.stream()
-                .distinct()
-                .map(this::processAsync)
-                .collect(Collectors.toList());
-
-        List<PaymentInstruction> processed = futures.stream()
-                .map(CompletableFuture::join)
-                .collect(Collectors.toList());
-
-        int rejected = (int) processed.stream().filter(p -> p.getStatus() == PaymentStatus.RISK_REJECTED).count();
-        int failed = (int) processed.stream().filter(p -> p.getStatus() == PaymentStatus.FAILED).count();
-        int succeeded = processed.size() - rejected - failed;
-        List<String> failedIds = processed.stream()
-                .filter(p -> p.getStatus() == PaymentStatus.FAILED)
-                .map(PaymentInstruction::getInstructionId)
-                .collect(Collectors.toList());
-
-        return new PaymentBatchResult(processed.size(), succeeded, rejected, failed, failedIds);
+        List<String> distinct = instructionIds.stream().distinct().collect(Collectors.toList());
+        for (String id : distinct) {
+            enqueueForProcessing(id);
+        }
+        return new PaymentBatchResult(distinct.size(), 0, 0, 0, Collections.emptyList());
     }
 
     @Transactional

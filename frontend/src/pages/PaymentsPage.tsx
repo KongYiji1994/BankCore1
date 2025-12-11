@@ -85,8 +85,8 @@ export const PaymentsPage = () => {
       return;
     }
     try {
-      const { successes, riskRejected, failures } = await processBatch(selectedRowKeys as string[]);
-      message.success(`批处理完成：通过 ${successes}，拒绝 ${riskRejected}，失败 ${failures}`);
+      const { total } = await processBatch(selectedRowKeys as string[]);
+      message.success(`批处理入队成功：${total} 笔`);
       setSelectedRowKeys([]);
       refresh();
     } catch (err) {
@@ -104,6 +104,7 @@ export const PaymentsPage = () => {
   }, [payments]);
 
   const columns = [
+    { title: '请求号', dataIndex: 'requestId', width: 150 },
     { title: '指令号', dataIndex: 'instructionId', width: 150 },
     { title: '付款人', dataIndex: 'payerAccount' },
     { title: '收款人', dataIndex: 'payeeAccount' },
@@ -145,7 +146,14 @@ export const PaymentsPage = () => {
     <Row gutter={16}>
       <Col xs={24} lg={10}>
         <Card title="录入支付/代发指令" bordered>
-          <Form layout="vertical" onFinish={onSubmit} initialValues={{ currency: 'CNY', priority: 5 }}>
+          <Form
+            layout="vertical"
+            onFinish={onSubmit}
+            initialValues={{ currency: 'CNY', priority: 5, requestId: `REQ-${Date.now()}` }}
+          >
+            <Form.Item name="requestId" label="请求号" rules={[{ required: true, message: '请输入或生成请求号' }]}>
+              <Input placeholder="如：REQ20240901001" />
+            </Form.Item>
             <Form.Item name="instructionId" label="指令号" rules={[{ required: true, message: '请输入指令号' }]}>
               <Input placeholder="如：PMT20240901001" />
             </Form.Item>
@@ -198,9 +206,9 @@ export const PaymentsPage = () => {
           bordered
           extra={
             <Space>
-              <Tag color="purple">INITIATED {counts.INITIATED || 0}</Tag>
-              <Tag color="cyan">待清算 {counts.PENDING_CLEARING || 0}</Tag>
-              <Tag color="orange">待风控 {counts.PENDING_RISK_APPROVAL || 0}</Tag>
+              <Tag color="purple">PENDING {counts.PENDING || 0}</Tag>
+              <Tag color="orange">风控 {counts.IN_RISK_REVIEW || 0}</Tag>
+              <Tag color="gold">清算 {counts.CLEARING || 0}</Tag>
               <Button size="small" onClick={onBatchProcess} disabled={selectedRowKeys.length === 0}>
                 并行批处理
               </Button>

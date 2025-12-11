@@ -20,4 +20,19 @@ public class AccountClient {
         String url = accountServiceBaseUrl + "/accounts/" + accountId;
         return restTemplate.getForObject(url, AccountDTO.class);
     }
+
+    public AccountDTO freeze(String accountId, java.math.BigDecimal amount) {
+        String url = accountServiceBaseUrl + "/accounts/" + accountId + "/freeze?amount=" + amount;
+        return restTemplate.postForObject(url, null, AccountDTO.class);
+    }
+
+    public AccountDTO unfreeze(String accountId, java.math.BigDecimal amount) {
+        String url = accountServiceBaseUrl + "/accounts/" + accountId + "/unfreeze?amount=" + amount;
+        return restTemplate.postForObject(url, null, AccountDTO.class);
+    }
+
+    public AccountDTO settle(String accountId, java.math.BigDecimal amount) {
+        String url = accountServiceBaseUrl + "/accounts/" + accountId + "/settle?amount=" + amount;
+        return restTemplate.postForObject(url, null, AccountDTO.class);
+    }
 }
