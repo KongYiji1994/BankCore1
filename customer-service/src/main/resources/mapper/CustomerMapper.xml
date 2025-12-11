@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.bankcore.customer.repository.CustomerMapper">
+    <resultMap id="CustomerMap" type="com.bankcore.customer.model.Customer">
+        <id column="customer_id" property="customerId"/>
+        <result column="name" property="name"/>
+        <result column="national_id" property="nationalId"/>
+        <result column="onboard_date" property="onboardDate"/>
+        <result column="risk_level" property="riskLevel"/>
+        <result column="segment" property="segment"/>
+    </resultMap>
+
+    <select id="findAll" resultMap="CustomerMap">
+        SELECT customer_id, name, national_id, onboard_date, risk_level, segment FROM customers
+    </select>
+
+    <select id="findById" parameterType="string" resultMap="CustomerMap">
+        SELECT customer_id, name, national_id, onboard_date, risk_level, segment FROM customers WHERE customer_id = #{id}
+    </select>
+
+    <insert id="insert" parameterType="com.bankcore.customer.model.Customer">
+        INSERT INTO customers(customer_id, name, national_id, onboard_date, risk_level, segment)
+        VALUES(#{customerId}, #{name}, #{nationalId}, #{onboardDate}, #{riskLevel}, #{segment})
+    </insert>
+</mapper>
