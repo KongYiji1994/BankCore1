@@ -9,6 +9,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import javax.validation.Valid;
+import java.util.HashMap;
 import java.util.Map;
 
 @RestController
@@ -23,6 +24,8 @@ public class NotificationController {
     @PostMapping
     public ResponseEntity<Map<String, Object>> send(@Valid @RequestBody NotificationRequest request) {
         dispatcher.dispatch(request);
-        return ResponseEntity.accepted().body(Map.of("status", "queued"));
+        Map<String, Object> response = new HashMap<>();
+        response.put("status", "queued");
+        return ResponseEntity.accepted().body(response);
     }
 }

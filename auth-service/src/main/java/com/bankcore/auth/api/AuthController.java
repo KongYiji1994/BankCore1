@@ -9,6 +9,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 import javax.validation.Valid;
 import javax.validation.constraints.NotBlank;
+import java.util.HashMap;
 import java.util.Map;
 
 @RestController
@@ -24,7 +25,10 @@ public class AuthController {
     @PostMapping("/token")
     public ResponseEntity<Map<String, String>> issueToken(@Valid @RequestBody TokenRequest request) {
         String token = jwtService.generateToken(request.getUsername(), request.getRole());
-        return ResponseEntity.ok(Map.of("accessToken", token, "tokenType", "Bearer"));
+        Map<String, String> body = new HashMap<>();
+        body.put("accessToken", token);
+        body.put("tokenType", "Bearer");
+        return ResponseEntity.ok(body);
     }
 
     public static class TokenRequest {
