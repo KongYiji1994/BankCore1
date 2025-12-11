@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.bankcore.treasury.repository.CashPoolInterestMapper">
+    <resultMap id="InterestEntryResult" type="com.bankcore.treasury.model.CashPoolInterestEntry">
+        <id property="id" column="id"/>
+        <result property="poolId" column="pool_id"/>
+        <result property="headerAccount" column="header_account"/>
+        <result property="interestAmount" column="interest_amount"/>
+        <result property="rate" column="rate"/>
+        <result property="accrualDate" column="accrual_date"/>
+        <result property="description" column="description"/>
+    </resultMap>
+
+    <insert id="insert" useGeneratedKeys="true" keyProperty="id" parameterType="com.bankcore.treasury.model.CashPoolInterestEntry">
+        INSERT INTO cash_pool_interest_entries(pool_id, header_account, interest_amount, rate, accrual_date, description)
+        VALUES(#{poolId}, #{headerAccount}, #{interestAmount}, #{rate}, #{accrualDate}, #{description})
+    </insert>
+
+    <select id="findByPoolAndDate" resultMap="InterestEntryResult">
+        SELECT id, pool_id, header_account, interest_amount, rate, accrual_date, description
+        FROM cash_pool_interest_entries
+        WHERE pool_id = #{poolId} AND accrual_date = #{accrualDate}
+        ORDER BY id DESC
+    </select>
+</mapper>

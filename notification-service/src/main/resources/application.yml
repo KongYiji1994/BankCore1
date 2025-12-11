@@ -1,0 +1,30 @@
+spring:
+  application:
+    name: notification-service
+  mail:
+    host: localhost
+    port: 1025
+    properties:
+      mail:
+        smtp:
+          auth: false
+          starttls:
+            enable: false
+server:
+  port: 8087
+management:
+  endpoints:
+    web:
+      exposure:
+        include: "health,info"
+rabbitmq:
+  host: localhost
+  port: 5672
+  username: guest
+  password: guest
+notification:
+  messaging:
+    exchange: notification.events.exchange
+    queue: notification.events.queue
+    routingKey: notification.events
+    dlq: notification.events.dlq
