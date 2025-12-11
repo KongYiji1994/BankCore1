@@ -2,6 +2,7 @@ package com.bankcore.settlement.repository;
 
 import com.bankcore.settlement.model.ReconciliationSummaryEntity;
 import org.apache.ibatis.annotations.Mapper;
+import org.apache.ibatis.annotations.Param;
 
 import java.time.LocalDate;
 import java.util.List;
@@ -12,7 +13,7 @@ public interface ReconciliationSummaryMapper {
 
     ReconciliationSummaryEntity findLatest();
 
-    ReconciliationSummaryEntity findById(Long id);
+    ReconciliationSummaryEntity findById(@Param("id") Long id);
 
-    List<ReconciliationSummaryEntity> findByDate(LocalDate date);
+    List<ReconciliationSummaryEntity> findByDate(@Param("date") LocalDate date);
 }
