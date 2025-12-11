@@ -50,6 +50,11 @@ Each module is an independent Spring Boot 2.7 application using Java 1.8, MySQL 
    The dev server listens on http://localhost:5173 by default and calls the account (8081), payment (8082), and treasury (8083)
    services.
 
+## Build notes
+- The root `bankcore-parent` now inherits from `spring-boot-starter-parent 2.7.18`, which provides managed plugin/dependency versions so modules build cleanly with Java 8.
+- To build all Java services locally (skipping tests), run `mvn clean package -DskipTests` from the repository root after ensuring Maven can reach the public repositories.
+- If your environment uses an internal Maven proxy, configure it in `~/.m2/settings.xml` to resolve Spring Boot/MyBatis/MySQL artifacts.
+
 ## Sample APIs
 - Account: create account, query balance, post debit/credit.
 - Payment: submit transfer order, review status, trigger retry.
