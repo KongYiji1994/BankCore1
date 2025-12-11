@@ -15,3 +15,6 @@ management:
     web:
       exposure:
         include: health,info
+
+account-service:
+  url: http://localhost:8081

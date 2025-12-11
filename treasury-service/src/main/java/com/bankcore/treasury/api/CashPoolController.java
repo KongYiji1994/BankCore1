@@ -1,13 +1,13 @@
 package com.bankcore.treasury.api;
 
 import com.bankcore.common.dto.CashPoolDefinition;
+import com.bankcore.treasury.model.CashPoolInterestEntry;
 import com.bankcore.treasury.model.CashPool;
 import com.bankcore.treasury.service.CashPoolService;
 import javax.validation.Valid;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
-import java.math.BigDecimal;
 import java.util.List;
 
 @RestController
@@ -26,8 +26,13 @@ public class CashPoolController {
     }
 
     @PostMapping("/{poolId}/sweep")
-    public ResponseEntity<CashPool> sweep(@PathVariable String poolId, @RequestParam BigDecimal headerBalance) {
-        return ResponseEntity.ok(service.sweep(poolId, headerBalance));
+    public ResponseEntity<CashPool> sweep(@PathVariable String poolId) {
+        return ResponseEntity.ok(service.sweep(poolId));
+    }
+
+    @PostMapping("/{poolId}/accrue")
+    public ResponseEntity<CashPoolInterestEntry> accrue(@PathVariable String poolId) {
+        return ResponseEntity.ok(service.accrueDailyInterest(poolId));
     }
 
     @GetMapping

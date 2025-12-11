@@ -29,4 +29,8 @@ public class CashPoolRepository {
     public void updateTargetBalance(String poolId, java.math.BigDecimal balance) {
         mapper.updateTargetBalance(poolId, balance);
     }
+
+    public void updateInterestDate(String poolId, java.time.LocalDate lastInterestDate) {
+        mapper.updateInterestDate(poolId, lastInterestDate);
+    }
 }

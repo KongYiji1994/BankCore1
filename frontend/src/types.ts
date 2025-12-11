@@ -48,4 +48,17 @@ export interface CashPool {
   memberAccounts: string[];
   targetBalance: number;
   strategy: string;
+  poolType: string;
+  interestRate: number;
+  lastInterestDate?: string;
+}
+
+export interface CashPoolInterestEntry {
+  id?: number;
+  poolId: string;
+  headerAccount: string;
+  interestAmount: number;
+  rate: number;
+  accrualDate: string;
+  description?: string;
 }

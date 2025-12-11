@@ -13,14 +13,8 @@ import {
   Tag,
   message,
 } from 'antd';
-import { CashPoolDefinition, listPools, registerPool, sweepPool } from '../api/treasury';
+import { CashPoolDefinition, accruePoolInterest, listPools, registerPool, sweepPool } from '../api/treasury';
 import type { CashPool } from '../types';
-
-interface SweepModalState {
-  open: boolean;
-  poolId?: string;
-  headerBalance?: number;
-}
 
 const strategies = [
   { label: 'TARGET_BALANCE', value: 'TARGET_BALANCE' },
@@ -28,10 +22,14 @@ const strategies = [
   { label: 'NOTIONAL_POOL', value: 'NOTIONAL_POOL' },
 ];
 
+const poolTypes = [
+  { label: 'PHYSICAL', value: 'PHYSICAL' },
+  { label: 'NOTIONAL', value: 'NOTIONAL' },
+];
+
 export const TreasuryPage = () => {
   const [pools, setPools] = useState<CashPool[]>([]);
   const [loading, setLoading] = useState(false);
-  const [sweepModal, setSweepModal] = useState<SweepModalState>({ open: false });
 
   const refresh = useCallback(async () => {
     setLoading(true);
@@ -61,20 +59,25 @@ export const TreasuryPage = () => {
     }
   };
 
-  const onSweep = async () => {
-    if (!sweepModal.poolId || sweepModal.headerBalance === undefined) {
-      message.warning('请输入 header 账户余额');
-      return;
-    }
+  const onSweep = async (poolId: string) => {
     try {
-      await sweepPool(sweepModal.poolId, sweepModal.headerBalance);
+      await sweepPool(poolId);
       message.success('手工归集/下拨完成');
       refresh();
     } catch (err) {
       console.error(err);
       message.error('归集失败');
-    } finally {
-      setSweepModal({ open: false });
+    }
+  };
+
+  const onAccrue = async (poolId: string) => {
+    try {
+      const entry = await accruePoolInterest(poolId);
+      message.success(`已计提利息 ${entry ? entry.interestAmount : 0}`);
+      refresh();
+    } catch (err) {
+      console.error(err);
+      message.error('计提失败');
     }
   };
 
@@ -88,6 +91,9 @@ export const TreasuryPage = () => {
       ),
     },
     { title: '目标余额', dataIndex: 'targetBalance' },
+    { title: '池类型', dataIndex: 'poolType', render: (value: string) => <Tag color="purple">{value}</Tag> },
+    { title: '日利率', dataIndex: 'interestRate' },
+    { title: '最近计息日', dataIndex: 'lastInterestDate', render: (value: string | undefined) => value || '-' },
     {
       title: '策略',
       dataIndex: 'strategy',
@@ -96,9 +102,14 @@ export const TreasuryPage = () => {
     {
       title: '操作',
       render: (_: unknown, record: CashPool) => (
-        <Button onClick={() => setSweepModal({ open: true, poolId: record.poolId })} size="small" type="primary">
-          手动归集
-        </Button>
+        <>
+          <Button onClick={() => onSweep(record.poolId)} size="small" type="primary" style={{ marginRight: 8 }}>
+            手动归集
+          </Button>
+          <Button onClick={() => onAccrue(record.poolId)} size="small">
+            计提利息
+          </Button>
+        </>
       ),
     },
   ];
@@ -107,7 +118,7 @@ export const TreasuryPage = () => {
     <Row gutter={16}>
       <Col xs={24} md={10}>
         <Card title="配置现金池" bordered>
-          <Form layout="vertical" onFinish={onCreate} initialValues={{ strategy: 'TARGET_BALANCE' }}>
+          <Form layout="vertical" onFinish={onCreate} initialValues={{ strategy: 'TARGET_BALANCE', poolType: 'PHYSICAL', interestRate: 0.0003 }}>
             <Form.Item name="poolId" label="Pool ID" rules={[{ required: true, message: '请输入唯一标识' }]}>
               <Input placeholder="POOL-001" />
             </Form.Item>
@@ -120,8 +131,14 @@ export const TreasuryPage = () => {
             <Form.Item name="targetBalance" label="Header 目标余额" rules={[{ required: true }]}>
               <InputNumber min={0} precision={2} style={{ width: '100%' }} />
             </Form.Item>
+            <Form.Item name="poolType" label="池类型" rules={[{ required: true }]}>
+              <Select options={poolTypes} />
+            </Form.Item>
             <Form.Item name="strategy" label="归集策略" rules={[{ required: true }]}>
               <Select options={strategies} />
+            </Form.Item>
+            <Form.Item name="interestRate" label="日利率" rules={[{ required: true }]}> 
+              <InputNumber min={0} precision={6} style={{ width: '100%' }} />
             </Form.Item>
             <Form.Item>
               <Button type="primary" htmlType="submit" block>
@@ -143,26 +160,6 @@ export const TreasuryPage = () => {
           />
         </Card>
       </Col>
-
-      <Modal
-        title="手动归集/下拨"
-        open={sweepModal.open}
-        onOk={onSweep}
-        onCancel={() => setSweepModal({ open: false })}
-        okText="执行"
-        cancelText="取消"
-        destroyOnClose
-      >
-        <InputNumber
-          autoFocus
-          min={0}
-          precision={2}
-          style={{ width: '100%' }}
-          placeholder="Header 当前余额"
-          value={sweepModal.headerBalance}
-          onChange={(val) => setSweepModal((prev) => ({ ...prev, headerBalance: Number(val) }))}
-        />
-      </Modal>
     </Row>
   );
 };

@@ -57,7 +57,22 @@ CREATE TABLE IF NOT EXISTS cash_pools (
     header_account VARCHAR(64) NOT NULL,
     member_accounts TEXT,
     target_balance DECIMAL(18,2) NOT NULL,
-    strategy VARCHAR(32) NOT NULL
+    strategy VARCHAR(32) NOT NULL,
+    pool_type VARCHAR(32) NOT NULL,
+    interest_rate DECIMAL(10,6) DEFAULT 0.000300,
+    last_interest_date DATE NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS cash_pool_interest_entries (
+    id BIGINT PRIMARY KEY AUTO_INCREMENT,
+    pool_id VARCHAR(64) NOT NULL,
+    header_account VARCHAR(64) NOT NULL,
+    interest_amount DECIMAL(18,2) NOT NULL,
+    rate DECIMAL(10,6) NOT NULL,
+    accrual_date DATE NOT NULL,
+    description VARCHAR(255),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    INDEX idx_pool_date (pool_id, accrual_date)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 CREATE TABLE IF NOT EXISTS risk_rules (
@@ -106,10 +121,10 @@ VALUES
     ('REQ-PMT-INIT-2', 'PMT-INIT-2', 'PENDING', 'seed request')
 ON DUPLICATE KEY UPDATE status=VALUES(status), payment_instruction_id=VALUES(payment_instruction_id);
 
-INSERT INTO cash_pools(pool_id, header_account, member_accounts, target_balance, strategy) VALUES
-    ('POOL-001', 'ACCT-1001', 'ACCT-1002,ACCT-1003', 800000.00, 'TARGET_BALANCE'),
-    ('POOL-002', 'ACCT-1002', 'ACCT-1001', 150000.00, 'ZERO_BALANCE')
-ON DUPLICATE KEY UPDATE target_balance=VALUES(target_balance);
+INSERT INTO cash_pools(pool_id, header_account, member_accounts, target_balance, strategy, pool_type, interest_rate) VALUES
+    ('POOL-001', 'ACCT-1001', 'ACCT-1002,ACCT-1003', 800000.00, 'TARGET_BALANCE', 'PHYSICAL', 0.000300),
+    ('POOL-002', 'ACCT-1002', 'ACCT-1001', 150000.00, 'ZERO_BALANCE', 'NOTIONAL', 0.000250)
+ON DUPLICATE KEY UPDATE target_balance=VALUES(target_balance), pool_type=VALUES(pool_type), interest_rate=VALUES(interest_rate);
 
 INSERT INTO risk_rules(name, type, expression, threshold, enabled) VALUES
     ('Per txn limit 1M', 'LIMIT_PER_TXN', NULL, 1000000.00, 1),

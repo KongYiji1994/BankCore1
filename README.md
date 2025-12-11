@@ -60,14 +60,14 @@ Each module is an independent Spring Boot 2.7 application using Java 1.8, MySQL 
 - Customer/KYC: onboard enterprise customers with credit code +联系人信息，支持查询客户风控状态，并可查询名下账户列表。
 - Account: create account, query balances, freeze/unfreeze funds, settle outgoing payments, and close zero-balance accounts.
 - Payment: submit transfer order with request-level idempotency, review status, trigger retry；在提交时会根据付款账户所属客户的 KYC 状态（NORMAL/RISKY/BLOCKED）自动阻断或进入风控复核。
-- Treasury: define cash pool, register member accounts, run manual sweep to header account.
+- Treasury: define cash pool (PHYSICAL/NOTIONAL) with three-way balances, set daily interest rate, trigger manual sweep or accrual, and rely on nightly scheduled sweeps plus 23:30 interest posting.
 - Settlement Batch: launch a job that consumes payment events and emits a reconciliation summary.
 
 ### Front-end pages
 - **Dashboard**：汇总账户余额、风控/清算队列、现金池策略与批次监控，方便演示端到端流量。
 - **账户管理**：创建结算账户、入账/出账交易，实时读取 MyBatis+MySQL 持久化数据。
 - **支付指令**：录入单笔或批量支付，触发 MQ 异步风控+清算，支持批次/渠道/优先级字段展示与人工放行/记账。
-- **现金池**：配置 Pool 与成员账户，设置目标余额与策略，手工触发 sweep 场景。
+- **现金池**：配置 Pool 与成员账户，设置目标余额/池类型/日利率，手工触发 sweep 或利息计提，定时任务会在 23:00 自动 sweep、23:30 生成利息凭证。
 
 The services now use MyBatis + MySQL for persistence with mapper XMLs under each module's `resources/mapper` folder. Datasource defaults point to `jdbc:mysql://localhost:3306/bankcore` with user/password `bankcore`, and you can override them per environment in `application.yml`.
 

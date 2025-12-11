@@ -7,21 +7,24 @@
         <result property="memberAccountsCsv" column="member_accounts"/>
         <result property="targetBalance" column="target_balance"/>
         <result property="strategy" column="strategy"/>
+        <result property="poolType" column="pool_type"/>
+        <result property="interestRate" column="interest_rate"/>
+        <result property="lastInterestDate" column="last_interest_date"/>
     </resultMap>
 
     <insert id="insert" parameterType="com.bankcore.treasury.model.CashPool">
-        INSERT INTO cash_pools(pool_id, header_account, member_accounts, target_balance, strategy)
-        VALUES(#{poolId}, #{headerAccount}, #{memberAccountsCsv}, #{targetBalance}, #{strategy})
+        INSERT INTO cash_pools(pool_id, header_account, member_accounts, target_balance, strategy, pool_type, interest_rate, last_interest_date)
+        VALUES(#{poolId}, #{headerAccount}, #{memberAccountsCsv}, #{targetBalance}, #{strategy}, #{poolType}, #{interestRate}, #{lastInterestDate})
     </insert>
 
     <select id="findById" parameterType="string" resultMap="CashPoolResult">
-        SELECT pool_id, header_account, member_accounts, target_balance, strategy
+        SELECT pool_id, header_account, member_accounts, target_balance, strategy, pool_type, interest_rate, last_interest_date
         FROM cash_pools
         WHERE pool_id = #{poolId}
     </select>
 
     <select id="findAll" resultMap="CashPoolResult">
-        SELECT pool_id, header_account, member_accounts, target_balance, strategy
+        SELECT pool_id, header_account, member_accounts, target_balance, strategy, pool_type, interest_rate, last_interest_date
         FROM cash_pools
         ORDER BY pool_id
     </select>
@@ -29,6 +32,12 @@
     <update id="updateTargetBalance">
         UPDATE cash_pools
         SET target_balance = #{targetBalance}
+        WHERE pool_id = #{poolId}
+    </update>
+
+    <update id="updateInterestDate">
+        UPDATE cash_pools
+        SET last_interest_date = #{lastInterestDate}
         WHERE pool_id = #{poolId}
     </update>
 </mapper>

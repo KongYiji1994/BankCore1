@@ -16,16 +16,23 @@ public class CashPoolDefinition {
     private BigDecimal targetBalance;
     @NotBlank
     private String strategy;
+    @NotBlank
+    private String poolType;
+    @NotNull
+    private BigDecimal interestRate;
 
     public CashPoolDefinition() {
     }
 
-    public CashPoolDefinition(String poolId, String headerAccount, Set<String> memberAccounts, BigDecimal targetBalance, String strategy) {
+    public CashPoolDefinition(String poolId, String headerAccount, Set<String> memberAccounts, BigDecimal targetBalance, String strategy,
+                              String poolType, BigDecimal interestRate) {
         this.poolId = poolId;
         this.headerAccount = headerAccount;
         this.memberAccounts = memberAccounts;
         this.targetBalance = targetBalance;
         this.strategy = strategy;
+        this.poolType = poolType;
+        this.interestRate = interestRate;
     }
 
     public String getPoolId() {
@@ -66,5 +73,21 @@ public class CashPoolDefinition {
 
     public void setStrategy(String strategy) {
         this.strategy = strategy;
+    }
+
+    public String getPoolType() {
+        return poolType;
+    }
+
+    public void setPoolType(String poolType) {
+        this.poolType = poolType;
+    }
+
+    public BigDecimal getInterestRate() {
+        return interestRate;
+    }
+
+    public void setInterestRate(BigDecimal interestRate) {
+        this.interestRate = interestRate;
     }
 }

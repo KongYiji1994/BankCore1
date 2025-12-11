@@ -15,4 +15,6 @@ public interface CashPoolMapper {
     List<CashPool> findAll();
 
     void updateTargetBalance(@Param("poolId") String poolId, @Param("targetBalance") java.math.BigDecimal targetBalance);
+
+    void updateInterestDate(@Param("poolId") String poolId, @Param("lastInterestDate") java.time.LocalDate lastInterestDate);
 }

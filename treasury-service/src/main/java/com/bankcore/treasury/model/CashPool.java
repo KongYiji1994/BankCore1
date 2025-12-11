@@ -1,6 +1,7 @@
 package com.bankcore.treasury.model;
 
 import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.util.Arrays;
 import java.util.HashSet;
 import java.util.Set;
@@ -11,16 +12,22 @@ public class CashPool {
     private final Set<String> memberAccounts = new HashSet<>();
     private BigDecimal targetBalance;
     private String strategy;
+    private String poolType;
+    private BigDecimal interestRate;
+    private LocalDate lastInterestDate;
 
     public CashPool() {
     }
 
-    public CashPool(String poolId, String headerAccount, Set<String> members, BigDecimal targetBalance, String strategy) {
+    public CashPool(String poolId, String headerAccount, Set<String> members, BigDecimal targetBalance, String strategy,
+                    String poolType, BigDecimal interestRate) {
         this.poolId = poolId;
         this.headerAccount = headerAccount;
         this.memberAccounts.addAll(members);
         this.targetBalance = targetBalance;
         this.strategy = strategy;
+        this.poolType = poolType;
+        this.interestRate = interestRate;
     }
 
     public String getPoolId() {
@@ -75,5 +82,29 @@ public class CashPool {
 
     public void setStrategy(String strategy) {
         this.strategy = strategy;
+    }
+
+    public String getPoolType() {
+        return poolType;
+    }
+
+    public void setPoolType(String poolType) {
+        this.poolType = poolType;
+    }
+
+    public BigDecimal getInterestRate() {
+        return interestRate;
+    }
+
+    public void setInterestRate(BigDecimal interestRate) {
+        this.interestRate = interestRate;
+    }
+
+    public LocalDate getLastInterestDate() {
+        return lastInterestDate;
+    }
+
+    public void setLastInterestDate(LocalDate lastInterestDate) {
+        this.lastInterestDate = lastInterestDate;
     }
 }
