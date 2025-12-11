@@ -14,6 +14,8 @@ import org.springframework.batch.item.support.ListItemReader;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
+import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
 
 @Configuration
@@ -42,8 +44,9 @@ public class ReconciliationJobConfig {
 
     @Bean
     public ItemReader<String> paymentReader() {
-        List<String> demoPayments = List.of("TXN-100", "TXN-101", "TXN-102");
+        List<String> demoPayments = Arrays.asList("TXN-100", "TXN-101", "TXN-102");
         return new ListItemReader<>(demoPayments);
+
     }
 
     @Bean
@@ -54,9 +57,13 @@ public class ReconciliationJobConfig {
     @Bean
     public ItemWriter<String> paymentWriter() {
         return items -> {
-            // In production we'd emit a file or push MQ events. Here we log to execution context for quick verification.
             ExecutionContext context = new ExecutionContext();
-            context.put("reconciliation", new ReconciliationSummary(items.size(), items.size(), List.of()));
+            context.put("reconciliation", new ReconciliationSummary(
+                    items.size(),
+                    items.size(),
+                    Collections.emptyList()
+            ));
         };
+
     }
 }
