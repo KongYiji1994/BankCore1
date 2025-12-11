@@ -1,6 +1,5 @@
-package com.bankcore.payment.service;
+package com.bankcore.payment.service.messaging;
 
-import com.bankcore.payment.service.messaging.PaymentEvent;
 import org.springframework.amqp.rabbit.core.RabbitTemplate;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
