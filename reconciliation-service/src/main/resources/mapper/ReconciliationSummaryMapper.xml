@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.bankcore.settlement.repository.ReconciliationSummaryMapper">
+
+    <resultMap id="SummaryMap" type="com.bankcore.settlement.model.ReconciliationSummaryEntity">
+        <id property="id" column="id" />
+        <result property="fileName" column="file_name" />
+        <result property="totalCount" column="total_count" />
+        <result property="matchedCount" column="matched_count" />
+        <result property="internalOnlyCount" column="internal_only_count" />
+        <result property="externalOnlyCount" column="external_only_count" />
+        <result property="amountMismatchCount" column="amount_mismatch_count" />
+        <result property="reconDate" column="recon_date" />
+        <result property="createdAt" column="created_at" />
+    </resultMap>
+
+    <insert id="insertSummary" parameterType="com.bankcore.settlement.model.ReconciliationSummaryEntity" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO recon_summary(file_name, total_count, matched_count, internal_only_count, external_only_count, amount_mismatch_count, recon_date, created_at)
+        VALUES(#{fileName}, #{totalCount}, #{matchedCount}, #{internalOnlyCount}, #{externalOnlyCount}, #{amountMismatchCount}, #{reconDate}, #{createdAt})
+    </insert>
+
+    <select id="findLatest" resultMap="SummaryMap">
+        SELECT id, file_name, total_count, matched_count, internal_only_count, external_only_count, amount_mismatch_count, recon_date, created_at
+        FROM recon_summary
+        ORDER BY created_at DESC
+        LIMIT 1
+    </select>
+
+    <select id="findById" parameterType="long" resultMap="SummaryMap">
+        SELECT id, file_name, total_count, matched_count, internal_only_count, external_only_count, amount_mismatch_count, recon_date, created_at
+        FROM recon_summary
+        WHERE id = #{id}
+    </select>
+
+    <select id="findByDate" parameterType="java.time.LocalDate" resultMap="SummaryMap">
+        SELECT id, file_name, total_count, matched_count, internal_only_count, external_only_count, amount_mismatch_count, recon_date, created_at
+        FROM recon_summary
+        WHERE recon_date = #{date}
+        ORDER BY created_at DESC
+    </select>
+</mapper>

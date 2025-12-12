@@ -1,0 +1,23 @@
+spring:
+  application:
+    name: customer-service
+  datasource:
+    url: jdbc:mysql://localhost:3306/bankcore?useSSL=false&serverTimezone=UTC
+    username: bankcore
+    password: bankcore
+    driver-class-name: com.mysql.cj.jdbc.Driver
+mybatis:
+  configuration:
+    map-underscore-to-camel-case: true
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics
+  endpoint:
+    health:
+      show-details: always
+server:
+  port: 8082
+account-service:
+  url: http://localhost:8081
