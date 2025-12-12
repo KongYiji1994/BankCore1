@@ -24,6 +24,7 @@ Each module is an independent Spring Boot 2.7 application using Java 1.8, MySQL 
 - 统一异常：`@RestControllerAdvice` 通过自定义 `BusinessException` 与 `ErrorCode`（如 `NOT_FOUND`、`BUSINESS_RULE_VIOLATION`、`RISK_REJECTED`、`PROCESSING` 等）封装 API 错误响应，调用方可基于错误码做重试/降级或友好提示。
 - 链路追踪：全局 `TraceIdFilter` 会读取/生成 `X-Trace-Id` 写入 MDC 并回写响应头，所有日志自动带 traceId，关键日志额外打印 paymentId/accountId/customerId，方便排查跨服务与 MQ 场景。
 - 可观测性：所有 Spring Boot 服务引入 Actuator，默认暴露 `/actuator/health`、`/actuator/info`、`/actuator/metrics`，健康检查展示依赖状态，可进一步接入 Prometheus/Grafana 或 ELK/SkyWalking。
+- 接口文档：所有服务内置 Knife4j（基于 Swagger2，兼容 JDK8 + Spring Boot 2.7），启动后访问 `http://localhost:{port}/doc.html` 查看交互式接口文档，例如账户服务 `http://localhost:8081/doc.html`、支付服务 `http://localhost:8083/doc.html`、资金池服务 `http://localhost:8084/doc.html`、KYC 客户服务 `http://localhost:8082/doc.html`，便于调试或展示。
 
 1. Start MySQL 8.x and RabbitMQ locally (recommended: Docker) and load the schema/seed data:
    ```bash
