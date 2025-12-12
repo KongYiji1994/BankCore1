@@ -166,7 +166,8 @@ public class PaymentService {
             throw new BusinessException(ErrorCode.PROCESSING, "Payment request is already being processed");
         }
         if (existing.getStatus() == PaymentRequestStatus.FAILED) {
-            throw new BusinessException(ErrorCode.FAILED, "Previous attempt failed: " + existing.getStatusReason());
+            String reason = existing.getMessage() == null ? "" : existing.getMessage();
+            throw new BusinessException(ErrorCode.FAILED, "Previous attempt failed: " + reason);
         }
         throw new BusinessException(ErrorCode.PROCESSING, "Payment request is already being processed");
     }
