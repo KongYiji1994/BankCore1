@@ -10,15 +10,24 @@ import org.springframework.stereotype.Service;
 
 import java.util.List;
 
+/**
+ * 通知分发器：根据消息通道路由到具体的发送处理器，异步执行避免阻塞业务线程。
+ */
 @Service
 public class NotificationDispatcher {
     private static final Logger log = LoggerFactory.getLogger(NotificationDispatcher.class);
     private final List<NotificationChannelHandler> handlers;
 
+    /**
+     * 构造注入所有通道处理器。
+     */
     public NotificationDispatcher(List<NotificationChannelHandler> handlers) {
         this.handlers = handlers;
     }
 
+    /**
+     * REST 提交的通知请求异步发送。
+     */
     @Async("notificationExecutor")
     public void dispatch(NotificationRequest request) {
         NotificationMessage message = new NotificationMessage();
@@ -30,11 +39,17 @@ public class NotificationDispatcher {
         doSend(message);
     }
 
+    /**
+     * MQ 转换后的通知消息异步发送。
+     */
     @Async("notificationExecutor")
     public void dispatch(NotificationMessage message) {
         doSend(message);
     }
 
+    /**
+     * 通道选择与发送主流程，未匹配到处理器时记录告警。
+     */
     private void doSend(NotificationMessage message) {
         NotificationChannel channel = message.getChannel();
         if (channel == null) {

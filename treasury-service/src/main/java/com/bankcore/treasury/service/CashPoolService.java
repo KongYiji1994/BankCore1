@@ -18,6 +18,9 @@ import java.time.LocalDate;
 import java.util.List;
 import java.util.Set;
 
+/**
+ * 资金池服务：支持资金池注册、每日利息计提、物理池自动归集与补偿。
+ */
 @Service
 public class CashPoolService {
     private static final BigDecimal DEFAULT_DAILY_RATE = new BigDecimal("0.0003");
@@ -27,6 +30,9 @@ public class CashPoolService {
     private final AccountClient accountClient;
     private final Logger log = LoggerFactory.getLogger(CashPoolService.class);
 
+    /**
+     * 构造注入仓储与账户客户端。
+     */
     public CashPoolService(CashPoolRepository repository,
                            CashPoolInterestRepository interestRepository,
                            AccountClient accountClient) {
@@ -35,6 +41,9 @@ public class CashPoolService {
         this.accountClient = accountClient;
     }
 
+    /**
+     * 注册资金池定义，保存策略、类型与利率。
+     */
     @Transactional
     public CashPool register(CashPoolDefinition definition) {
         CashPool pool = new CashPool(definition.getPoolId(), definition.getHeaderAccount(), definition.getMemberAccounts(), definition.getTargetBalance(), definition.getStrategy(),
@@ -43,6 +52,9 @@ public class CashPoolService {
         return pool;
     }
 
+    /**
+     * 日终利息计提：读取头寸余额，按利率计算并生成利息凭证，更新最后计提日期。
+     */
     @Transactional
     public CashPoolInterestEntry accrueDailyInterest(String poolId) {
         CashPool pool = get(poolId);
@@ -73,6 +85,9 @@ public class CashPoolService {
         return entry;
     }
 
+    /**
+     * 物理归集：在成员账户与头寸账户之间做目标余额调节。
+     */
     @Transactional
     public CashPool sweep(String poolId) {
         CashPool pool = get(poolId);
@@ -93,6 +108,9 @@ public class CashPoolService {
         return pool;
     }
 
+    /**
+     * 对全部资金池执行归集，供定时任务调用。
+     */
     public void sweepAll() {
         List<CashPool> pools = repository.findAll();
         for (CashPool pool : pools) {
@@ -100,6 +118,9 @@ public class CashPoolService {
         }
     }
 
+    /**
+     * 成员账户与头寸账户的调节逻辑：余额超目标则上收，不足则下拨。
+     */
     private void rebalanceMember(CashPool pool, AccountDTO headerAccount, String memberAccountId) {
         AccountDTO member = accountClient.getAccount(memberAccountId);
         if (member == null || member.getAvailableBalance() == null) {
@@ -127,11 +148,17 @@ public class CashPoolService {
         }
     }
 
+    /**
+     * 查询单个资金池。
+     */
     public CashPool get(String poolId) {
         return repository.findById(poolId)
                 .orElseThrow(() -> new IllegalArgumentException("Pool not found"));
     }
 
+    /**
+     * 查询全部资金池列表。
+     */
     public List<CashPool> list() {
         return repository.findAll();
     }

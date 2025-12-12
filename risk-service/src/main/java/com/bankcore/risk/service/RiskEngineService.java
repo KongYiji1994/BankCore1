@@ -17,6 +17,9 @@ import java.util.List;
 import java.util.Locale;
 import java.util.UUID;
 
+/**
+ * 风控引擎：加载启用的规则，依次校验黑名单、单笔限额、日累计限额，并记录审计日志。
+ */
 @Service
 public class RiskEngineService {
     private static final String RULE_LIMIT_PER_TXN = "LIMIT_PER_TXN";
@@ -27,12 +30,18 @@ public class RiskEngineService {
     private final RiskRuleRepository riskRuleRepository;
     private final RiskDecisionLogRepository decisionLogRepository;
 
+    /**
+     * 构造注入规则仓储与决策日志仓储。
+     */
     public RiskEngineService(RiskRuleRepository riskRuleRepository,
                              RiskDecisionLogRepository decisionLogRepository) {
         this.riskRuleRepository = riskRuleRepository;
         this.decisionLogRepository = decisionLogRepository;
     }
 
+    /**
+     * 执行风控评估：遍历规则并生成决策，默认通过。
+     */
     public RiskDecision evaluate(RiskController.RiskRequest request) {
         List<RiskRule> rules = riskRuleRepository.findEnabled();
         log.info("evaluating risk for customer={}, account={}, amount={}",
@@ -73,6 +82,9 @@ public class RiskEngineService {
         return decision;
     }
 
+    /**
+     * 校验客户或账户是否命中黑名单表达式。
+     */
     private boolean isBlacklisted(RiskRule rule, RiskController.RiskRequest request) {
         if (rule.getExpression() == null) {
             return false;
@@ -90,6 +102,9 @@ public class RiskEngineService {
         return false;
     }
 
+    /**
+     * 计算当日累加金额是否超限。
+     */
     private boolean violatesDailyLimit(String customerId, BigDecimal amount, BigDecimal threshold) {
         if (customerId == null || amount == null || threshold == null) {
             return false;
@@ -98,6 +113,9 @@ public class RiskEngineService {
         return usedToday.add(amount).compareTo(threshold) > 0;
     }
 
+    /**
+     * 填充决策对象的结果与原因，用于外部返回与日志。
+     */
     private void populateDecision(RiskDecision decision, RiskRule rule, RiskDecisionResult result, String reason) {
         decision.setResult(result);
         decision.setReason(reason);
@@ -107,6 +125,9 @@ public class RiskEngineService {
         decision.setBlocked(result == RiskDecisionResult.REJECTED);
     }
 
+    /**
+     * 记录风控审计日志，支持日累计查询。
+     */
     private void saveAudit(RiskDecision decision, RiskController.RiskRequest request) {
         RiskDecisionLog log = new RiskDecisionLog();
         log.setCustomerId(request.getCustomerId());

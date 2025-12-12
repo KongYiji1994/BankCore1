@@ -28,6 +28,9 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+/**
+ * 对账服务：处理外部对账文件导入、比对内外流水、生成差异及汇总报表。
+ */
 @Service
 public class ReconciliationService {
 
@@ -35,6 +38,9 @@ public class ReconciliationService {
     private final ReconciliationBreakMapper breakMapper;
     private final ReconciliationSummaryMapper summaryMapper;
 
+    /**
+     * 构造注入对账涉及的仓储。
+     */
     public ReconciliationService(PaymentMapper paymentMapper,
                                  ReconciliationBreakMapper breakMapper,
                                  ReconciliationSummaryMapper summaryMapper) {
@@ -43,6 +49,9 @@ public class ReconciliationService {
         this.summaryMapper = summaryMapper;
     }
 
+    /**
+     * 上传外部文件并执行对账，生成差异明细与汇总。
+     */
     @Transactional
     public ReconciliationResult uploadAndReconcile(MultipartFile file, LocalDate reconDate) throws IOException {
         LocalDate targetDate = reconDate != null ? reconDate : LocalDate.now();
@@ -106,6 +115,9 @@ public class ReconciliationService {
         return result;
     }
 
+    /**
+     * 查询最近一次对账结果。
+     */
     public ReconciliationResult latestSummary() {
         ReconciliationSummaryEntity summary = summaryMapper.findLatest();
         if (summary == null) {
@@ -117,6 +129,9 @@ public class ReconciliationService {
         return result;
     }
 
+    /**
+     * 按主键查询对账汇总与差异。
+     */
     public ReconciliationResult summaryById(Long id) {
         ReconciliationSummaryEntity summary = summaryMapper.findById(id);
         if (summary == null) {
@@ -128,10 +143,16 @@ public class ReconciliationService {
         return result;
     }
 
+    /**
+     * 查询指定日期的对账汇总列表。
+     */
     public List<ReconciliationSummaryEntity> findSummariesForDate(LocalDate date) {
         return summaryMapper.findByDate(date);
     }
 
+    /**
+     * 解析外部 CSV 对账文件，转换为外部流水列表。
+     */
     private List<ExternalPaymentRecord> parseExternalFile(MultipartFile file) throws IOException {
         List<ExternalPaymentRecord> records = new ArrayList<ExternalPaymentRecord>();
         BufferedReader reader = new BufferedReader(new InputStreamReader(file.getInputStream(), StandardCharsets.UTF_8));
@@ -160,6 +181,9 @@ public class ReconciliationService {
         return records;
     }
 
+    /**
+     * 构造差异记录，描述内外流水缺失或金额不一致的情况。
+     */
     private ReconciliationBreak buildBreak(PaymentRecord internal,
                                            ExternalPaymentRecord external,
                                            ReconciliationBreakType type,

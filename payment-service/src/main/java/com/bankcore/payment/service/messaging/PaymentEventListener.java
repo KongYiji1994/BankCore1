@@ -17,6 +17,9 @@ import org.slf4j.LoggerFactory;
 import org.springframework.amqp.rabbit.annotation.RabbitListener;
 import org.springframework.stereotype.Component;
 
+/**
+ * 支付事件消费者：监听 MQ 消息，执行风控->冻结->清算的异步链路，并用 Redis 标记避免重复消费。
+ */
 @Component
 public class PaymentEventListener {
     private static final Logger log = LoggerFactory.getLogger(PaymentEventListener.class);
@@ -30,6 +33,9 @@ public class PaymentEventListener {
     private final RiskClient riskClient;
     private final PaymentIdempotencyManager idempotencyManager;
 
+    /**
+     * 构造函数注入依赖，方便单测与替换实现。
+     */
     public PaymentEventListener(PaymentRepository paymentRepository,
                                 PaymentRequestRepository requestRepository,
                                 PaymentRiskAssessor riskAssessor,
@@ -46,6 +52,9 @@ public class PaymentEventListener {
         this.idempotencyManager = idempotencyManager;
     }
 
+    /**
+     * MQ 监听入口：幂等检查 -> 风控 -> 冻结记账 -> 清算 -> 更新请求/指令状态。
+     */
     @RabbitListener(queues = "${payment.messaging.queue:payment.events.queue}")
     public void onPaymentEvent(PaymentEvent event) {
         if (event == null || event.getInstructionId() == null) {

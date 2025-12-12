@@ -15,15 +15,25 @@ import java.util.List;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
+/**
+ * 账户核心服务，负责账户开户、收付款记账、冻结与解冻、关闭等全生命周期操作。
+ * 所有方法均带事务控制，确保余额字段(total/available/frozen)的一致性。
+ */
 @Service
 public class AccountService {
     private static final Logger log = LoggerFactory.getLogger(AccountService.class);
     private final AccountRepository repository;
 
+    /**
+     * 构造函数注入仓储接口，便于单元测试与替换实现。
+     */
     public AccountService(AccountRepository repository) {
         this.repository = repository;
     }
 
+    /**
+     * 开户：生成账户号，初始化三余额，并落库。
+     */
     @Transactional
     public AccountDTO createAccount(String customerId, String currency, BigDecimal openingBalance) {
         String accountId = UUID.randomUUID().toString();
@@ -33,6 +43,9 @@ public class AccountService {
         return toDto(account);
     }
 
+    /**
+     * 收款入账：增加总余额与可用余额。
+     */
     @Transactional
     public AccountDTO credit(String accountId, BigDecimal amount) {
         Account account = findAccount(accountId);
@@ -42,6 +55,9 @@ public class AccountService {
         return toDto(account);
     }
 
+    /**
+     * 支付前冻结：先扣减可用余额、增加冻结金额，防止超扣。
+     */
     @Transactional
     public AccountDTO freezeAmount(String accountId, BigDecimal amount) {
         Account account = findAccount(accountId);
@@ -51,6 +67,9 @@ public class AccountService {
         return toDto(account);
     }
 
+    /**
+     * 清算成功：减少总余额与冻结金额，完成出账。
+     */
     @Transactional
     public AccountDTO settle(String accountId, BigDecimal amount) {
         Account account = findAccount(accountId);
@@ -60,6 +79,9 @@ public class AccountService {
         return toDto(account);
     }
 
+    /**
+     * 取消支付或失败补偿：释放冻结金额、恢复可用余额。
+     */
     @Transactional
     public AccountDTO unfreeze(String accountId, BigDecimal amount) {
         Account account = findAccount(accountId);
@@ -69,6 +91,9 @@ public class AccountService {
         return toDto(account);
     }
 
+    /**
+     * 关闭账户：仅余额为零时允许关闭。
+     */
     @Transactional
     public AccountDTO close(String accountId) {
         Account account = findAccount(accountId);
@@ -78,22 +103,37 @@ public class AccountService {
         return toDto(account);
     }
 
+    /**
+     * 按账户号查询账户。
+     */
     public AccountDTO get(String accountId) {
         return toDto(findAccount(accountId, true));
     }
 
+    /**
+     * 查询所有账户列表。
+     */
     public List<AccountDTO> list() {
         return repository.findAll().stream().map(this::toDto).collect(Collectors.toList());
     }
 
+    /**
+     * 查询指定客户下的所有账户。
+     */
     public List<AccountDTO> listByCustomer(String customerId) {
         return repository.findByCustomer(customerId).stream().map(this::toDto).collect(Collectors.toList());
     }
 
+    /**
+     * 获取有效账户，默认不包含已关闭账户。
+     */
     private Account findAccount(String accountId) {
         return findAccount(accountId, false);
     }
 
+    /**
+     * 获取账户，可配置是否允许返回已关闭账户。
+     */
     private Account findAccount(String accountId, boolean includeClosed) {
         Account account = repository.findById(accountId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.NOT_FOUND, "Account not found"));
@@ -103,6 +143,9 @@ public class AccountService {
         return account;
     }
 
+    /**
+     * 领域对象转 DTO，供外部接口返回。
+     */
     private AccountDTO toDto(Account account) {
         return new AccountDTO(account.getAccountId(), account.getCustomerId(), account.getCurrency(), account.getTotalBalance(),
                 account.getAvailableBalance(), account.getFrozenBalance(), account.getStatus());
