@@ -14,11 +14,17 @@ import com.bankcore.payment.model.PaymentRequestStatus;
 import com.bankcore.payment.repository.PaymentRepository;
 import com.bankcore.payment.repository.PaymentRequestRepository;
 import com.bankcore.payment.service.messaging.PaymentEventPublisher;
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.Future;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.core.task.AsyncTaskExecutor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -35,6 +41,7 @@ public class PaymentService {
     private final CustomerClient customerClient;
     private final PaymentEventPublisher paymentEventPublisher;
     private final PaymentIdempotencyManager idempotencyManager;
+    private final AsyncTaskExecutor paymentTaskExecutor;
 
     /**
      * 构造注入依赖：仓储、幂等管理、外部账户/客户查询与事件发布器。
@@ -44,13 +51,15 @@ public class PaymentService {
                           AccountClient accountClient,
                           CustomerClient customerClient,
                           PaymentEventPublisher paymentEventPublisher,
-                          PaymentIdempotencyManager idempotencyManager) {
+                          PaymentIdempotencyManager idempotencyManager,
+                          @Qualifier("paymentTaskExecutor") AsyncTaskExecutor paymentTaskExecutor) {
         this.repository = repository;
         this.requestRepository = requestRepository;
         this.accountClient = accountClient;
         this.customerClient = customerClient;
         this.paymentEventPublisher = paymentEventPublisher;
         this.idempotencyManager = idempotencyManager;
+        this.paymentTaskExecutor = paymentTaskExecutor;
     }
 
     /**
@@ -125,10 +134,38 @@ public class PaymentService {
             return new PaymentBatchResult(0, 0, 0, 0, Collections.emptyList());
         }
         List<String> distinct = instructionIds.stream().distinct().collect(Collectors.toList());
+        AtomicInteger succeeded = new AtomicInteger();
+        List<String> failedIds = Collections.synchronizedList(new ArrayList<>());
+        List<Future<?>> futures = new ArrayList<>();
+
         for (String id : distinct) {
-            enqueueForProcessing(id);
+            futures.add(paymentTaskExecutor.submit(() -> {
+                try {
+                    enqueueForProcessing(id);
+                    succeeded.incrementAndGet();
+                } catch (BusinessException ex) {
+                    failedIds.add(id);
+                    log.warn("batch enqueue rejected for instructionId={}, reason={}", id, ex.getMessage());
+                } catch (Exception ex) {
+                    failedIds.add(id);
+                    log.error("batch enqueue failed for instructionId=" + id, ex);
+                }
+            }));
         }
-        return new PaymentBatchResult(distinct.size(), 0, 0, 0, Collections.emptyList());
+
+        for (Future<?> future : futures) {
+            try {
+                future.get();
+            } catch (InterruptedException ie) {
+                Thread.currentThread().interrupt();
+                throw new BusinessException(ErrorCode.PROCESSING, "Batch submission interrupted");
+            } catch (ExecutionException ee) {
+                log.error("unexpected exception during batch processing", ee);
+                failedIds.add("unknown-error");
+            }
+        }
+
+        return new PaymentBatchResult(distinct.size(), succeeded.get(), 0, failedIds.size(), new ArrayList<>(failedIds));
     }
 
     /**
