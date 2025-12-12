@@ -6,8 +6,13 @@ spring:
     username: bankcore
     password: bankcore
     driver-class-name: com.mysql.cj.jdbc.Driver
+  redis:
+    host: localhost
+    port: 6379
 mybatis:
   mapper-locations: classpath:mapper/*.xml
+  configuration:
+    map-underscore-to-camel-case: true
 server:
   port: 8081
 management:

@@ -7,6 +7,7 @@ import com.bankcore.risk.model.RiskDecisionResult;
 import com.bankcore.risk.model.RiskRule;
 import com.bankcore.risk.repository.RiskDecisionLogRepository;
 import com.bankcore.risk.repository.RiskRuleRepository;
+import java.util.function.Supplier;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
@@ -25,25 +26,35 @@ public class RiskEngineService {
     private static final String RULE_LIMIT_PER_TXN = "LIMIT_PER_TXN";
     private static final String RULE_LIMIT_DAILY = "LIMIT_DAILY";
     private static final String RULE_BLACKLIST = "BLACKLIST";
+    private static final String RULE_HIGH_FREQ = "HIGH_FREQ";
     private static final Logger log = LoggerFactory.getLogger(RiskEngineService.class);
 
     private final RiskRuleRepository riskRuleRepository;
     private final RiskDecisionLogRepository decisionLogRepository;
+    private final RiskCacheManager riskCacheManager;
 
     /**
      * 构造注入规则仓储与决策日志仓储。
      */
     public RiskEngineService(RiskRuleRepository riskRuleRepository,
-                             RiskDecisionLogRepository decisionLogRepository) {
+                             RiskDecisionLogRepository decisionLogRepository,
+                             RiskCacheManager riskCacheManager) {
         this.riskRuleRepository = riskRuleRepository;
         this.decisionLogRepository = decisionLogRepository;
+        this.riskCacheManager = riskCacheManager;
     }
 
     /**
      * 执行风控评估：遍历规则并生成决策，默认通过。
      */
     public RiskDecision evaluate(RiskController.RiskRequest request) {
-        List<RiskRule> rules = riskRuleRepository.findEnabled();
+        // 通过 Redis 做规则缓存，减少每次支付都访问数据库的开销，5 分钟刷新一次
+        List<RiskRule> rules = riskCacheManager.loadEnabledRules(new Supplier<List<RiskRule>>() {
+            @Override
+            public List<RiskRule> get() {
+                return riskRuleRepository.findEnabled();
+            }
+        });
         log.info("evaluating risk for customer={}, account={}, amount={}",
                 request.getCustomerId(), request.getPayerAccount(), request.getAmount());
         RiskDecision decision = new RiskDecision();
@@ -73,6 +84,13 @@ public class RiskEngineService {
                         && violatesDailyLimit(request.getCustomerId(), request.getAmount(), rule.getThreshold())) {
                     populateDecision(decision, rule, RiskDecisionResult.REJECTED,
                             "Daily cumulative limit exceeded for customer " + request.getCustomerId());
+                    break;
+                }
+                if (RULE_HIGH_FREQ.equals(type)
+                        && rule.getThreshold() != null
+                        && violatesFrequency(request.getCustomerId(), rule.getThreshold().intValue())) {
+                    populateDecision(decision, rule, RiskDecisionResult.REJECTED,
+                            "High frequency transactions detected for customer " + request.getCustomerId());
                     break;
                 }
             }
@@ -109,8 +127,26 @@ public class RiskEngineService {
         if (customerId == null || amount == null || threshold == null) {
             return false;
         }
+        // 优先使用 Redis 计数器累加日额度，避免高并发下聚合查询数据库
+        Long cachedTotal = riskCacheManager.incrementDailyAmount(customerId, amount);
+        if (cachedTotal != null) {
+            BigDecimal cachedAmount = new BigDecimal(cachedTotal).movePointLeft(2);
+            return cachedAmount.compareTo(threshold) > 0;
+        }
         BigDecimal usedToday = decisionLogRepository.sumToday(customerId);
         return usedToday.add(amount).compareTo(threshold) > 0;
+    }
+
+    /**
+     * 高频检测：使用 Redis 分钟计数，若计数异常则默认放行并依赖后续规则兜底。
+     */
+    private boolean violatesFrequency(String customerId, int threshold) {
+        // 高频规则：Redis 按分钟累加，超过阈值直接拒绝，计数异常时返回 false 由后续规则兜底
+        Long count = riskCacheManager.incrementFrequency(customerId);
+        if (count != null) {
+            return count.intValue() > threshold;
+        }
+        return false;
     }
 
     /**

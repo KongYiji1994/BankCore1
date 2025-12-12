@@ -10,6 +10,7 @@ import com.bankcore.payment.repository.PaymentRepository;
 import com.bankcore.payment.repository.PaymentRequestRepository;
 import com.bankcore.payment.service.PaymentClearingAdapter;
 import com.bankcore.payment.service.PaymentIdempotencyManager;
+import com.bankcore.payment.service.PaymentAccountLockManager;
 import com.bankcore.payment.service.PaymentRiskAssessor;
 import java.math.BigDecimal;
 import org.slf4j.Logger;
@@ -25,6 +26,7 @@ public class PaymentEventListener {
     private static final Logger log = LoggerFactory.getLogger(PaymentEventListener.class);
     private static final long EVENT_LOCK_TTL_SECONDS = 300L;
     private static final long EVENT_DONE_TTL_SECONDS = 3600L;
+    private static final long ACCOUNT_LOCK_TTL_SECONDS = 60L;
     private final PaymentRepository paymentRepository;
     private final PaymentRequestRepository requestRepository;
     private final PaymentRiskAssessor riskAssessor;
@@ -32,6 +34,7 @@ public class PaymentEventListener {
     private final AccountClient accountClient;
     private final RiskClient riskClient;
     private final PaymentIdempotencyManager idempotencyManager;
+    private final PaymentAccountLockManager accountLockManager;
 
     /**
      * 构造函数注入依赖，方便单测与替换实现。
@@ -42,7 +45,8 @@ public class PaymentEventListener {
                                 PaymentClearingAdapter clearingAdapter,
                                 AccountClient accountClient,
                                 RiskClient riskClient,
-                                PaymentIdempotencyManager idempotencyManager) {
+                                PaymentIdempotencyManager idempotencyManager,
+                                PaymentAccountLockManager accountLockManager) {
         this.paymentRepository = paymentRepository;
         this.requestRepository = requestRepository;
         this.riskAssessor = riskAssessor;
@@ -50,6 +54,7 @@ public class PaymentEventListener {
         this.accountClient = accountClient;
         this.riskClient = riskClient;
         this.idempotencyManager = idempotencyManager;
+        this.accountLockManager = accountLockManager;
     }
 
     /**
@@ -99,6 +104,12 @@ public class PaymentEventListener {
                 idempotencyManager.markEventCompleted(event.getInstructionId(), EVENT_DONE_TTL_SECONDS);
                 return;
             }
+            // 在真正冻结/扣款前，使用账户维度分布式锁保证同一账户不会被并发出款
+            boolean accountLocked = accountLockManager.tryLock(instruction.getPayerAccount(), ACCOUNT_LOCK_TTL_SECONDS);
+            if (!accountLocked) {
+                log.warn("payer account {} is locked by concurrent payment, will retry", instruction.getPayerAccount());
+                throw new IllegalStateException("账户正在处理其他支付，稍后重试");
+            }
             BigDecimal score = riskAssessor.evaluate(instruction);
             PaymentStatus nextStatus = score.compareTo(BigDecimal.valueOf(80)) >= 0
                     ? PaymentStatus.RISK_REJECTED
@@ -109,23 +120,28 @@ public class PaymentEventListener {
             if (nextStatus == PaymentStatus.RISK_REJECTED) {
                 requestRepository.updateStatus(event.getRequestId(), PaymentRequestStatus.SUCCEEDED, instruction.getInstructionId(), "rejected by risk");
                 idempotencyManager.markEventCompleted(event.getInstructionId(), EVENT_DONE_TTL_SECONDS);
+                accountLockManager.unlock(instruction.getPayerAccount());
                 return;
             }
-            accountClient.freeze(instruction.getPayerAccount(), instruction.getAmount());
-            PaymentStatus clearingStatus = clearingAdapter.dispatch(instruction);
-            if (clearingStatus == PaymentStatus.POSTED) {
-                accountClient.settle(instruction.getPayerAccount(), instruction.getAmount());
-                paymentRepository.updateStatus(instruction.getInstructionId(), PaymentStatus.POSTED);
-                requestRepository.updateStatus(event.getRequestId(), PaymentRequestStatus.SUCCEEDED, instruction.getInstructionId(), "posted");
-            } else if (clearingStatus == PaymentStatus.CLEARING) {
-                paymentRepository.updateStatus(instruction.getInstructionId(), PaymentStatus.CLEARING);
-                requestRepository.updateStatus(event.getRequestId(), PaymentRequestStatus.SUCCEEDED, instruction.getInstructionId(), "sent to clearing");
-            } else {
-                paymentRepository.updateStatus(instruction.getInstructionId(), PaymentStatus.FAILED);
-                requestRepository.updateStatus(event.getRequestId(), PaymentRequestStatus.FAILED, instruction.getInstructionId(), "clearing failed");
-                accountClient.unfreeze(instruction.getPayerAccount(), instruction.getAmount());
+            try {
+                accountClient.freeze(instruction.getPayerAccount(), instruction.getAmount());
+                PaymentStatus clearingStatus = clearingAdapter.dispatch(instruction);
+                if (clearingStatus == PaymentStatus.POSTED) {
+                    accountClient.settle(instruction.getPayerAccount(), instruction.getAmount());
+                    paymentRepository.updateStatus(instruction.getInstructionId(), PaymentStatus.POSTED);
+                    requestRepository.updateStatus(event.getRequestId(), PaymentRequestStatus.SUCCEEDED, instruction.getInstructionId(), "posted");
+                } else if (clearingStatus == PaymentStatus.CLEARING) {
+                    paymentRepository.updateStatus(instruction.getInstructionId(), PaymentStatus.CLEARING);
+                    requestRepository.updateStatus(event.getRequestId(), PaymentRequestStatus.SUCCEEDED, instruction.getInstructionId(), "sent to clearing");
+                } else {
+                    paymentRepository.updateStatus(instruction.getInstructionId(), PaymentStatus.FAILED);
+                    requestRepository.updateStatus(event.getRequestId(), PaymentRequestStatus.FAILED, instruction.getInstructionId(), "clearing failed");
+                    accountClient.unfreeze(instruction.getPayerAccount(), instruction.getAmount());
+                }
+                idempotencyManager.markEventCompleted(event.getInstructionId(), EVENT_DONE_TTL_SECONDS);
+            } finally {
+                accountLockManager.unlock(instruction.getPayerAccount());
             }
-            idempotencyManager.markEventCompleted(event.getInstructionId(), EVENT_DONE_TTL_SECONDS);
         } catch (Exception ex) {
             log.error("Payment processing failed for {}", event.getInstructionId(), ex);
             idempotencyManager.releaseEventLock(event.getInstructionId());

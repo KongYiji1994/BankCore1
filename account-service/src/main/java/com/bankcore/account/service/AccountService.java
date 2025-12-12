@@ -23,12 +23,19 @@ import java.util.stream.Collectors;
 public class AccountService {
     private static final Logger log = LoggerFactory.getLogger(AccountService.class);
     private final AccountRepository repository;
+    private final AccountLockManager lockManager;
+
+    /**
+     * 锁过期时间（秒），防止线程异常退出导致锁长时间占用。
+     */
+    private static final long ACCOUNT_LOCK_TTL_SECONDS = 30L;
 
     /**
      * 构造函数注入仓储接口，便于单元测试与替换实现。
      */
-    public AccountService(AccountRepository repository) {
+    public AccountService(AccountRepository repository, AccountLockManager lockManager) {
         this.repository = repository;
+        this.lockManager = lockManager;
     }
 
     /**
@@ -48,11 +55,15 @@ public class AccountService {
      */
     @Transactional
     public AccountDTO credit(String accountId, BigDecimal amount) {
-        Account account = findAccount(accountId);
-        account.credit(amount);
-        repository.update(account);
-        log.info("credited account {} amount {}", accountId, amount);
-        return toDto(account);
+        return executeWithLock(accountId, new AccountOperation<AccountDTO>() {
+            @Override
+            public AccountDTO apply(Account account) {
+                account.credit(amount);
+                repository.update(account);
+                log.info("credited account {} amount {}", accountId, amount);
+                return toDto(account);
+            }
+        });
     }
 
     /**
@@ -60,11 +71,15 @@ public class AccountService {
      */
     @Transactional
     public AccountDTO freezeAmount(String accountId, BigDecimal amount) {
-        Account account = findAccount(accountId);
-        account.prepareDebit(amount);
-        repository.update(account);
-        log.info("frozen amount {} on account {}", amount, accountId);
-        return toDto(account);
+        return executeWithLock(accountId, new AccountOperation<AccountDTO>() {
+            @Override
+            public AccountDTO apply(Account account) {
+                account.prepareDebit(amount);
+                repository.update(account);
+                log.info("frozen amount {} on account {}", amount, accountId);
+                return toDto(account);
+            }
+        });
     }
 
     /**
@@ -72,11 +87,15 @@ public class AccountService {
      */
     @Transactional
     public AccountDTO settle(String accountId, BigDecimal amount) {
-        Account account = findAccount(accountId);
-        account.settleDebit(amount);
-        repository.update(account);
-        log.info("settled debit amount {} on account {}", amount, accountId);
-        return toDto(account);
+        return executeWithLock(accountId, new AccountOperation<AccountDTO>() {
+            @Override
+            public AccountDTO apply(Account account) {
+                account.settleDebit(amount);
+                repository.update(account);
+                log.info("settled debit amount {} on account {}", amount, accountId);
+                return toDto(account);
+            }
+        });
     }
 
     /**
@@ -84,11 +103,15 @@ public class AccountService {
      */
     @Transactional
     public AccountDTO unfreeze(String accountId, BigDecimal amount) {
-        Account account = findAccount(accountId);
-        account.releaseFrozen(amount);
-        repository.update(account);
-        log.info("unfroze amount {} on account {}", amount, accountId);
-        return toDto(account);
+        return executeWithLock(accountId, new AccountOperation<AccountDTO>() {
+            @Override
+            public AccountDTO apply(Account account) {
+                account.releaseFrozen(amount);
+                repository.update(account);
+                log.info("unfroze amount {} on account {}", amount, accountId);
+                return toDto(account);
+            }
+        });
     }
 
     /**
@@ -96,11 +119,15 @@ public class AccountService {
      */
     @Transactional
     public AccountDTO close(String accountId) {
-        Account account = findAccount(accountId);
-        account.close();
-        repository.update(account);
-        log.info("closed account {}", accountId);
-        return toDto(account);
+        return executeWithLock(accountId, new AccountOperation<AccountDTO>() {
+            @Override
+            public AccountDTO apply(Account account) {
+                account.close();
+                repository.update(account);
+                log.info("closed account {}", accountId);
+                return toDto(account);
+            }
+        });
     }
 
     /**
@@ -149,5 +176,28 @@ public class AccountService {
     private AccountDTO toDto(Account account) {
         return new AccountDTO(account.getAccountId(), account.getCustomerId(), account.getCurrency(), account.getTotalBalance(),
                 account.getAvailableBalance(), account.getFrozenBalance(), account.getStatus());
+    }
+
+    /**
+     * 通用账户加锁执行模板：先获取 Redis 分布式锁，确保同一账户的修改串行，再执行业务逻辑。
+     */
+    private <T> T executeWithLock(String accountId, AccountOperation<T> operation) {
+        boolean locked = lockManager.tryLock(accountId, ACCOUNT_LOCK_TTL_SECONDS);
+        if (!locked) {
+            throw new BusinessException(ErrorCode.PROCESSING, "账户正在处理并发交易，请稍后重试");
+        }
+        try {
+            Account account = findAccount(accountId);
+            return operation.apply(account);
+        } finally {
+            lockManager.unlock(accountId);
+        }
+    }
+
+    /**
+     * 账户操作模板接口，便于在加锁后传入不同的业务逻辑。
+     */
+    private interface AccountOperation<T> {
+        T apply(Account account);
     }
 }
