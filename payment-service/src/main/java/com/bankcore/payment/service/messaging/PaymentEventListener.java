@@ -89,17 +89,33 @@ public class PaymentEventListener {
                 idempotencyManager.markEventCompleted(event.getInstructionId(), EVENT_DONE_TTL_SECONDS);
                 return;
             }
-            requestRepository.updateStatus(event.getRequestId(), PaymentRequestStatus.PROCESSING, instruction.getInstructionId(), null);
-            paymentRepository.updateStatus(instruction.getInstructionId(), PaymentStatus.IN_RISK_REVIEW);
-            RiskClient.RiskDecisionResponse decision = riskClient.evaluate(instruction.getAmount(), instruction.getPayerCustomerId(), instruction.getChannel() == null ? "API" : instruction.getChannel(), instruction.getPayerAccount());
+            if (instruction.getStatus() == PaymentStatus.POSTED || instruction.getStatus() == PaymentStatus.CLEARING) {
+                idempotencyManager.markEventCompleted(event.getInstructionId(), EVENT_DONE_TTL_SECONDS);
+                return;
+            }
+            if (instruction.getStatus() == PaymentStatus.RISK_REJECTED || instruction.getStatus() == PaymentStatus.FAILED) {
+                requestRepository.updateStatus(event.getRequestId(), PaymentRequestStatus.SUCCEEDED, instruction.getInstructionId(), "already handled");
+                idempotencyManager.markEventCompleted(event.getInstructionId(), EVENT_DONE_TTL_SECONDS);
+                return;
+            }
+            boolean requestLocked = requestRecord == null
+                    || requestRepository.updateStatusIfMatch(event.getRequestId(), PaymentRequestStatus.PENDING, PaymentRequestStatus.PROCESSING, instruction.getInstructionId(), null)
+                    || requestRepository.updateStatusIfMatch(event.getRequestId(), PaymentRequestStatus.PROCESSING, PaymentRequestStatus.PROCESSING, instruction.getInstructionId(), null);
+            if (!requestLocked) {
+                log.info("request {} status already advanced, skipping", event.getRequestId());
+                idempotencyManager.markEventCompleted(event.getInstructionId(), EVENT_DONE_TTL_SECONDS);
+                return;
+            }
+            paymentRepository.compareAndUpdateStatus(instruction.getInstructionId(), PaymentStatus.PENDING, PaymentStatus.IN_RISK_REVIEW);
+            RiskClient.RiskDecisionResponse decision = riskClient.evaluate(instruction.getAmount(), instruction.getPayerCustomerId(), instruction.getChannel() == null ? "API" : instruction.getChannel(), instruction.getPayerAccount(), instruction.getInstructionId());
             if (decision != null && decision.getResult() != null && "REJECTED".equalsIgnoreCase(decision.getResult())) {
-                paymentRepository.updateStatus(instruction.getInstructionId(), PaymentStatus.RISK_REJECTED);
+                paymentRepository.compareAndUpdateStatus(instruction.getInstructionId(), PaymentStatus.IN_RISK_REVIEW, PaymentStatus.RISK_REJECTED);
                 requestRepository.updateStatus(event.getRequestId(), PaymentRequestStatus.SUCCEEDED, instruction.getInstructionId(), decision.getReason());
                 idempotencyManager.markEventCompleted(event.getInstructionId(), EVENT_DONE_TTL_SECONDS);
                 return;
             }
             if (decision != null && decision.getResult() != null && "REVIEW".equalsIgnoreCase(decision.getResult())) {
-                paymentRepository.updateStatus(instruction.getInstructionId(), PaymentStatus.IN_RISK_REVIEW);
+                paymentRepository.compareAndUpdateStatus(instruction.getInstructionId(), PaymentStatus.IN_RISK_REVIEW, PaymentStatus.IN_RISK_REVIEW);
                 requestRepository.updateStatus(event.getRequestId(), PaymentRequestStatus.PROCESSING, instruction.getInstructionId(), decision.getReason());
                 idempotencyManager.markEventCompleted(event.getInstructionId(), EVENT_DONE_TTL_SECONDS);
                 return;
@@ -114,7 +130,7 @@ public class PaymentEventListener {
             PaymentStatus nextStatus = score.compareTo(BigDecimal.valueOf(80)) >= 0
                     ? PaymentStatus.RISK_REJECTED
                     : PaymentStatus.RISK_APPROVED;
-            paymentRepository.updateRisk(instruction.getInstructionId(), score, nextStatus);
+            paymentRepository.compareAndUpdateRisk(instruction.getInstructionId(), score, PaymentStatus.IN_RISK_REVIEW, nextStatus);
             instruction.setRiskScore(score);
             instruction.setStatus(nextStatus);
             if (nextStatus == PaymentStatus.RISK_REJECTED) {
@@ -124,19 +140,19 @@ public class PaymentEventListener {
                 return;
             }
             try {
-                accountClient.freeze(instruction.getPayerAccount(), instruction.getAmount());
+                accountClient.freeze(instruction.getPayerAccount(), instruction.getAmount(), instruction.getInstructionId());
                 PaymentStatus clearingStatus = clearingAdapter.dispatch(instruction);
                 if (clearingStatus == PaymentStatus.POSTED) {
-                    accountClient.settle(instruction.getPayerAccount(), instruction.getAmount());
-                    paymentRepository.updateStatus(instruction.getInstructionId(), PaymentStatus.POSTED);
+                    accountClient.settle(instruction.getPayerAccount(), instruction.getAmount(), instruction.getInstructionId());
+                    paymentRepository.compareAndUpdateStatus(instruction.getInstructionId(), PaymentStatus.RISK_APPROVED, PaymentStatus.POSTED);
                     requestRepository.updateStatus(event.getRequestId(), PaymentRequestStatus.SUCCEEDED, instruction.getInstructionId(), "posted");
                 } else if (clearingStatus == PaymentStatus.CLEARING) {
-                    paymentRepository.updateStatus(instruction.getInstructionId(), PaymentStatus.CLEARING);
+                    paymentRepository.compareAndUpdateStatus(instruction.getInstructionId(), PaymentStatus.RISK_APPROVED, PaymentStatus.CLEARING);
                     requestRepository.updateStatus(event.getRequestId(), PaymentRequestStatus.SUCCEEDED, instruction.getInstructionId(), "sent to clearing");
                 } else {
-                    paymentRepository.updateStatus(instruction.getInstructionId(), PaymentStatus.FAILED);
+                    paymentRepository.compareAndUpdateStatus(instruction.getInstructionId(), PaymentStatus.RISK_APPROVED, PaymentStatus.FAILED);
                     requestRepository.updateStatus(event.getRequestId(), PaymentRequestStatus.FAILED, instruction.getInstructionId(), "clearing failed");
-                    accountClient.unfreeze(instruction.getPayerAccount(), instruction.getAmount());
+                    accountClient.unfreeze(instruction.getPayerAccount(), instruction.getAmount(), instruction.getInstructionId());
                 }
                 idempotencyManager.markEventCompleted(event.getInstructionId(), EVENT_DONE_TTL_SECONDS);
             } finally {

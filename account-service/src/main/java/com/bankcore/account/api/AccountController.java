@@ -61,40 +61,50 @@ public class AccountController {
      * 收款入账。
      */
     @PostMapping("/{accountId}/credit")
-    public ResponseEntity<AccountDTO> credit(@PathVariable String accountId, @RequestParam @Min(1) BigDecimal amount) {
-        return ResponseEntity.ok(service.credit(accountId, amount));
+    public ResponseEntity<AccountDTO> credit(@PathVariable String accountId,
+                                             @RequestParam @Min(1) BigDecimal amount,
+                                             @RequestParam(value = "requestId", required = false) String requestId) {
+        return ResponseEntity.ok(service.credit(accountId, amount, requestId));
     }
 
     /**
      * 支付前冻结（兼容旧接口）。
      */
     @PostMapping("/{accountId}/debit")
-    public ResponseEntity<AccountDTO> debit(@PathVariable String accountId, @RequestParam @Min(1) BigDecimal amount) {
-        return ResponseEntity.ok(service.freezeAmount(accountId, amount));
+    public ResponseEntity<AccountDTO> debit(@PathVariable String accountId,
+                                            @RequestParam @Min(1) BigDecimal amount,
+                                            @RequestParam(value = "requestId", required = false) String requestId) {
+        return ResponseEntity.ok(service.freezeAmount(accountId, amount, requestId));
     }
 
     /**
      * 冻结指定金额。
      */
     @PostMapping("/{accountId}/freeze")
-    public ResponseEntity<AccountDTO> freeze(@PathVariable String accountId, @RequestParam @Min(1) BigDecimal amount) {
-        return ResponseEntity.ok(service.freezeAmount(accountId, amount));
+    public ResponseEntity<AccountDTO> freeze(@PathVariable String accountId,
+                                             @RequestParam @Min(1) BigDecimal amount,
+                                             @RequestParam(value = "requestId", required = false) String requestId) {
+        return ResponseEntity.ok(service.freezeAmount(accountId, amount, requestId));
     }
 
     /**
      * 清算成功，扣减冻结与总余额。
      */
     @PostMapping("/{accountId}/settle")
-    public ResponseEntity<AccountDTO> settle(@PathVariable String accountId, @RequestParam @Min(1) BigDecimal amount) {
-        return ResponseEntity.ok(service.settle(accountId, amount));
+    public ResponseEntity<AccountDTO> settle(@PathVariable String accountId,
+                                             @RequestParam @Min(1) BigDecimal amount,
+                                             @RequestParam(value = "requestId", required = false) String requestId) {
+        return ResponseEntity.ok(service.settle(accountId, amount, requestId));
     }
 
     /**
      * 取消支付或失败时解除冻结。
      */
     @PostMapping("/{accountId}/unfreeze")
-    public ResponseEntity<AccountDTO> unfreeze(@PathVariable String accountId, @RequestParam @Min(1) BigDecimal amount) {
-        return ResponseEntity.ok(service.unfreeze(accountId, amount));
+    public ResponseEntity<AccountDTO> unfreeze(@PathVariable String accountId,
+                                               @RequestParam @Min(1) BigDecimal amount,
+                                               @RequestParam(value = "requestId", required = false) String requestId) {
+        return ResponseEntity.ok(service.unfreeze(accountId, amount, requestId));
     }
 
     /**

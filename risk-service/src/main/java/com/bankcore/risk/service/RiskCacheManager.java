@@ -1,5 +1,6 @@
 package com.bankcore.risk.service;
 
+import com.bankcore.risk.model.RiskDecision;
 import com.bankcore.risk.model.RiskRule;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -27,7 +28,10 @@ public class RiskCacheManager {
     private static final String RULE_CACHE_KEY = "risk:rules:enabled";
     private static final String DAILY_AMOUNT_KEY = "risk:daily:amount:";
     private static final String FREQ_KEY = "risk:freq:";
+    private static final String REQUEST_PROCESSING_KEY = "risk:req:processing:";
+    private static final String REQUEST_RESULT_KEY = "risk:req:result:";
     private static final long RULE_CACHE_TTL_SECONDS = 300L;
+    private static final long REQUEST_RESULT_TTL_SECONDS = 600L;
     private static final int SCALE = 2;
 
     private final StringRedisTemplate redisTemplate;
@@ -64,6 +68,42 @@ public class RiskCacheManager {
      */
     public void evictRules() {
         redisTemplate.delete(RULE_CACHE_KEY);
+    }
+
+    public boolean tryMarkProcessing(String requestId) {
+        if (requestId == null || requestId.trim().isEmpty()) {
+            return true;
+        }
+        Boolean locked = redisTemplate.opsForValue()
+                .setIfAbsent(REQUEST_PROCESSING_KEY + requestId, "1", REQUEST_RESULT_TTL_SECONDS, TimeUnit.SECONDS);
+        return locked != null && locked.booleanValue();
+    }
+
+    public RiskDecision getCachedDecision(String requestId) {
+        if (requestId == null || requestId.trim().isEmpty()) {
+            return null;
+        }
+        try {
+            String cached = redisTemplate.opsForValue().get(REQUEST_RESULT_KEY + requestId);
+            if (cached != null) {
+                return objectMapper.readValue(cached, RiskDecision.class);
+            }
+        } catch (Exception ex) {
+            log.warn("读取风控决策缓存失败 requestId={}", requestId, ex);
+        }
+        return null;
+    }
+
+    public void cacheDecision(String requestId, RiskDecision decision) {
+        if (requestId == null || requestId.trim().isEmpty() || decision == null) {
+            return;
+        }
+        try {
+            redisTemplate.opsForValue()
+                    .set(REQUEST_RESULT_KEY + requestId, objectMapper.writeValueAsString(decision), REQUEST_RESULT_TTL_SECONDS, TimeUnit.SECONDS);
+        } catch (Exception ex) {
+            log.warn("写入风控决策缓存失败 requestId={}", requestId, ex);
+        }
     }
 
     /**

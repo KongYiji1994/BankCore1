@@ -35,6 +35,7 @@ public class RiskController {
         private String channel;
         @NotBlank
         private String payerAccount;
+        private String requestId;
 
         public BigDecimal getAmount() {
             return amount;
@@ -66,6 +67,14 @@ public class RiskController {
 
         public void setPayerAccount(String payerAccount) {
             this.payerAccount = payerAccount;
+        }
+
+        public String getRequestId() {
+            return requestId;
+        }
+
+        public void setRequestId(String requestId) {
+            this.requestId = requestId;
         }
     }
 }

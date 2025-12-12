@@ -175,8 +175,14 @@ public class PaymentService {
     public PaymentInstruction riskApprove(String instructionId) {
         PaymentInstruction instruction = repository.findById(instructionId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.NOT_FOUND, "Instruction not found"));
+        if (instruction.getStatus() == PaymentStatus.RISK_APPROVED) {
+            return instruction;
+        }
+        boolean updated = repository.compareAndUpdateStatus(instructionId, PaymentStatus.IN_RISK_REVIEW, PaymentStatus.RISK_APPROVED);
+        if (!updated) {
+            throw new BusinessException(ErrorCode.PROCESSING, "Instruction status changed, cannot approve");
+        }
         instruction.setStatus(PaymentStatus.RISK_APPROVED);
-        repository.updateStatus(instructionId, PaymentStatus.RISK_APPROVED);
         return instruction;
     }
 
@@ -187,8 +193,15 @@ public class PaymentService {
     public PaymentInstruction post(String instructionId) {
         PaymentInstruction instruction = repository.findById(instructionId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.NOT_FOUND, "Instruction not found"));
+        if (instruction.getStatus() == PaymentStatus.POSTED) {
+            return instruction;
+        }
+        boolean updated = repository.compareAndUpdateStatus(instructionId, PaymentStatus.RISK_APPROVED, PaymentStatus.POSTED)
+                || repository.compareAndUpdateStatus(instructionId, PaymentStatus.CLEARING, PaymentStatus.POSTED);
+        if (!updated) {
+            throw new BusinessException(ErrorCode.PROCESSING, "Instruction not ready for posting");
+        }
         instruction.setStatus(PaymentStatus.POSTED);
-        repository.updateStatus(instructionId, PaymentStatus.POSTED);
         return instruction;
     }
 
@@ -199,8 +212,14 @@ public class PaymentService {
     public PaymentInstruction fail(String instructionId) {
         PaymentInstruction instruction = repository.findById(instructionId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.NOT_FOUND, "Instruction not found"));
+        if (instruction.getStatus() == PaymentStatus.FAILED) {
+            return instruction;
+        }
+        boolean updated = repository.compareAndUpdateStatus(instructionId, instruction.getStatus(), PaymentStatus.FAILED);
+        if (!updated) {
+            throw new BusinessException(ErrorCode.PROCESSING, "Instruction status changed, cannot mark failed");
+        }
         instruction.setStatus(PaymentStatus.FAILED);
-        repository.updateStatus(instructionId, PaymentStatus.FAILED);
         return instruction;
     }
 

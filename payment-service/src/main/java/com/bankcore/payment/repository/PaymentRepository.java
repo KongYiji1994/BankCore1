@@ -31,7 +31,16 @@ public class PaymentRepository {
         mapper.updateStatus(instructionId, status.name());
     }
 
+    public boolean compareAndUpdateStatus(String instructionId, PaymentStatus expectedStatus, PaymentStatus targetStatus) {
+        return mapper.compareAndUpdateStatus(instructionId, expectedStatus.name(), targetStatus.name()) > 0;
+    }
+
     public void updateRisk(String instructionId, java.math.BigDecimal riskScore, PaymentStatus status) {
         mapper.updateRisk(instructionId, riskScore, status.name());
+    }
+
+    public boolean compareAndUpdateRisk(String instructionId, java.math.BigDecimal riskScore,
+                                        PaymentStatus expectedStatus, PaymentStatus status) {
+        return mapper.compareAndUpdateRisk(instructionId, riskScore, expectedStatus.name(), status.name()) > 0;
     }
 }
