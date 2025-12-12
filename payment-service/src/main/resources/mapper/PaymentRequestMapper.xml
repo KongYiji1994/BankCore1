@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.bankcore.payment.repository.PaymentRequestMapper">
+    <resultMap id="PaymentRequestResult" type="com.bankcore.payment.model.PaymentRequestRecord">
+        <id property="requestId" column="request_id"/>
+        <result property="paymentInstructionId" column="payment_instruction_id"/>
+        <result property="status" column="status" javaType="com.bankcore.payment.model.PaymentRequestStatus"/>
+        <result property="message" column="message"/>
+        <result property="createdAt" column="created_at"/>
+        <result property="updatedAt" column="updated_at"/>
+    </resultMap>
+
+    <insert id="insert" parameterType="com.bankcore.payment.model.PaymentRequestRecord">
+        INSERT INTO payment_requests(request_id, payment_instruction_id, status, message, created_at, updated_at)
+        VALUES(#{requestId}, #{paymentInstructionId}, #{status}, #{message}, #{createdAt}, #{updatedAt})
+    </insert>
+
+    <select id="findByRequestId" parameterType="string" resultMap="PaymentRequestResult">
+        SELECT request_id, payment_instruction_id, status, message, created_at, updated_at
+        FROM payment_requests
+        WHERE request_id = #{requestId}
+    </select>
+
+    <update id="updateStatus">
+        UPDATE payment_requests
+        SET status = #{status}, payment_instruction_id = #{paymentInstructionId}, message = #{message}, updated_at = NOW()
+        WHERE request_id = #{requestId}
+    </update>
+</mapper>
