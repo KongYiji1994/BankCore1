@@ -45,6 +45,7 @@ public class PaymentEventListener {
         if (event == null || event.getInstructionId() == null) {
             return;
         }
+        log.info("received payment event requestId={}, instructionId={}", event.getRequestId(), event.getInstructionId());
         PaymentRequestRecord requestRecord = requestRepository.findByRequestId(event.getRequestId()).orElse(null);
         if (requestRecord != null && requestRecord.getStatus() == PaymentRequestStatus.SUCCEEDED) {
             log.info("Duplicate payment request {} ignored: already succeeded", event.getRequestId());

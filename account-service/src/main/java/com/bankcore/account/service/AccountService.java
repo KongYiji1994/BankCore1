@@ -3,6 +3,10 @@ package com.bankcore.account.service;
 import com.bankcore.account.model.Account;
 import com.bankcore.account.repository.AccountRepository;
 import com.bankcore.common.dto.AccountDTO;
+import com.bankcore.common.error.BusinessException;
+import com.bankcore.common.error.ErrorCode;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -13,6 +17,7 @@ import java.util.stream.Collectors;
 
 @Service
 public class AccountService {
+    private static final Logger log = LoggerFactory.getLogger(AccountService.class);
     private final AccountRepository repository;
 
     public AccountService(AccountRepository repository) {
@@ -24,6 +29,7 @@ public class AccountService {
         String accountId = UUID.randomUUID().toString();
         Account account = new Account(accountId, customerId, currency, openingBalance);
         repository.save(account);
+        log.info("created account {} for customer {} with currency {}", accountId, customerId, currency);
         return toDto(account);
     }
 
@@ -32,6 +38,7 @@ public class AccountService {
         Account account = findAccount(accountId);
         account.credit(amount);
         repository.update(account);
+        log.info("credited account {} amount {}", accountId, amount);
         return toDto(account);
     }
 
@@ -40,6 +47,7 @@ public class AccountService {
         Account account = findAccount(accountId);
         account.prepareDebit(amount);
         repository.update(account);
+        log.info("frozen amount {} on account {}", amount, accountId);
         return toDto(account);
     }
 
@@ -48,6 +56,7 @@ public class AccountService {
         Account account = findAccount(accountId);
         account.settleDebit(amount);
         repository.update(account);
+        log.info("settled debit amount {} on account {}", amount, accountId);
         return toDto(account);
     }
 
@@ -56,6 +65,7 @@ public class AccountService {
         Account account = findAccount(accountId);
         account.releaseFrozen(amount);
         repository.update(account);
+        log.info("unfroze amount {} on account {}", amount, accountId);
         return toDto(account);
     }
 
@@ -64,6 +74,7 @@ public class AccountService {
         Account account = findAccount(accountId);
         account.close();
         repository.update(account);
+        log.info("closed account {}", accountId);
         return toDto(account);
     }
 
@@ -85,9 +96,9 @@ public class AccountService {
 
     private Account findAccount(String accountId, boolean includeClosed) {
         Account account = repository.findById(accountId)
-                .orElseThrow(() -> new IllegalArgumentException("Account not found"));
+                .orElseThrow(() -> new BusinessException(ErrorCode.NOT_FOUND, "Account not found"));
         if (!includeClosed && "CLOSED".equalsIgnoreCase(account.getStatus())) {
-            throw new IllegalStateException("Account is closed");
+            throw new BusinessException(ErrorCode.BUSINESS_RULE_VIOLATION, "Account is closed");
         }
         return account;
     }

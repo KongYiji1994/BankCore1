@@ -4,6 +4,8 @@ import com.bankcore.common.dto.AccountDTO;
 import com.bankcore.common.dto.PaymentBatchResult;
 import com.bankcore.common.dto.PaymentRequest;
 import com.bankcore.common.dto.PaymentStatus;
+import com.bankcore.common.error.BusinessException;
+import com.bankcore.common.error.ErrorCode;
 import com.bankcore.payment.client.AccountClient;
 import com.bankcore.payment.client.CustomerClient;
 import com.bankcore.payment.model.PaymentInstruction;
@@ -15,11 +17,14 @@ import com.bankcore.payment.service.messaging.PaymentEventPublisher;
 import java.util.Collections;
 import java.util.List;
 import java.util.stream.Collectors;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 @Service
 public class PaymentService {
+    private static final Logger log = LoggerFactory.getLogger(PaymentService.class);
     private final PaymentRepository repository;
     private final PaymentRequestRepository requestRepository;
     private final AccountClient accountClient;
@@ -44,27 +49,28 @@ public class PaymentService {
         if (existing != null) {
             if (existing.getStatus() == PaymentRequestStatus.SUCCEEDED && existing.getPaymentInstructionId() != null) {
                 return repository.findById(existing.getPaymentInstructionId())
-                        .orElseThrow(() -> new IllegalStateException("Payment previously succeeded but record missing"));
+                        .orElseThrow(() -> new BusinessException(ErrorCode.NOT_FOUND,
+                                "Payment previously succeeded but record missing"));
             }
             if (existing.getStatus() == PaymentRequestStatus.PENDING || existing.getStatus() == PaymentRequestStatus.PROCESSING) {
                 if (existing.getPaymentInstructionId() != null) {
                     return repository.findById(existing.getPaymentInstructionId())
-                            .orElseThrow(() -> new IllegalStateException("Processing payment not found"));
+                            .orElseThrow(() -> new BusinessException(ErrorCode.NOT_FOUND, "Processing payment not found"));
                 }
-                throw new IllegalStateException("Payment request is already being processed");
+                throw new BusinessException(ErrorCode.PROCESSING, "Payment request is already being processed");
             }
         }
         AccountDTO payerAccount = accountClient.getAccount(request.getPayerAccount());
         if (payerAccount == null) {
-            throw new IllegalArgumentException("Payer account not found");
+            throw new BusinessException(ErrorCode.NOT_FOUND, "Payer account not found");
         }
         CustomerClient.CustomerProfile payerCustomer = customerClient.getCustomer(payerAccount.getCustomerId());
         if (payerCustomer == null) {
-            throw new IllegalArgumentException("Customer not found for account");
+            throw new BusinessException(ErrorCode.NOT_FOUND, "Customer not found for account");
         }
         String payerStatus = payerCustomer.getStatus() == null ? "NORMAL" : payerCustomer.getStatus();
         if ("BLOCKED".equalsIgnoreCase(payerStatus)) {
-            throw new IllegalStateException("Payer customer is blocked");
+            throw new BusinessException(ErrorCode.RISK_REJECTED, "Payer customer is blocked");
         }
         PaymentInstruction instruction = new PaymentInstruction(
                 request.getRequestId(),
@@ -80,6 +86,8 @@ public class PaymentService {
                 request.getBatchId(),
                 request.getPriority(),
                 PaymentStatus.PENDING);
+        log.info("enqueuing payment requestId={}, instructionId={}, payerAccount={}, amount={}",
+                instruction.getRequestId(), instruction.getInstructionId(), instruction.getPayerAccount(), instruction.getAmount());
         repository.save(instruction);
         if (existing == null) {
             requestRepository.createPending(request.getRequestId(), instruction.getInstructionId());
@@ -92,7 +100,8 @@ public class PaymentService {
 
     public PaymentInstruction enqueueForProcessing(String instructionId) {
         PaymentInstruction instruction = repository.findById(instructionId)
-                .orElseThrow(() -> new IllegalArgumentException("Instruction not found"));
+                .orElseThrow(() -> new BusinessException(ErrorCode.NOT_FOUND, "Instruction not found"));
+        log.info("manual enqueue instructionId={}, requestId={}", instructionId, instruction.getRequestId());
         requestRepository.updateStatus(instruction.getRequestId(), PaymentRequestStatus.PENDING, instructionId, "manual enqueue");
         paymentEventPublisher.publishAsync(instruction.getRequestId(), instructionId);
         return instruction;
@@ -112,7 +121,7 @@ public class PaymentService {
     @Transactional
     public PaymentInstruction riskApprove(String instructionId) {
         PaymentInstruction instruction = repository.findById(instructionId)
-                .orElseThrow(() -> new IllegalArgumentException("Instruction not found"));
+                .orElseThrow(() -> new BusinessException(ErrorCode.NOT_FOUND, "Instruction not found"));
         instruction.setStatus(PaymentStatus.RISK_APPROVED);
         repository.updateStatus(instructionId, PaymentStatus.RISK_APPROVED);
         return instruction;
@@ -121,7 +130,7 @@ public class PaymentService {
     @Transactional
     public PaymentInstruction post(String instructionId) {
         PaymentInstruction instruction = repository.findById(instructionId)
-                .orElseThrow(() -> new IllegalArgumentException("Instruction not found"));
+                .orElseThrow(() -> new BusinessException(ErrorCode.NOT_FOUND, "Instruction not found"));
         instruction.setStatus(PaymentStatus.POSTED);
         repository.updateStatus(instructionId, PaymentStatus.POSTED);
         return instruction;
@@ -130,7 +139,7 @@ public class PaymentService {
     @Transactional
     public PaymentInstruction fail(String instructionId) {
         PaymentInstruction instruction = repository.findById(instructionId)
-                .orElseThrow(() -> new IllegalArgumentException("Instruction not found"));
+                .orElseThrow(() -> new BusinessException(ErrorCode.NOT_FOUND, "Instruction not found"));
         instruction.setStatus(PaymentStatus.FAILED);
         repository.updateStatus(instructionId, PaymentStatus.FAILED);
         return instruction;
@@ -138,7 +147,7 @@ public class PaymentService {
 
     public PaymentInstruction get(String instructionId) {
         return repository.findById(instructionId)
-                .orElseThrow(() -> new IllegalArgumentException("Instruction not found"));
+                .orElseThrow(() -> new BusinessException(ErrorCode.NOT_FOUND, "Instruction not found"));
     }
 
     public List<PaymentInstruction> list() {

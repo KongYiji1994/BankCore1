@@ -7,7 +7,7 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.scheduling.annotation.EnableScheduling;
 import org.springframework.web.client.RestTemplate;
 
-@SpringBootApplication
+@SpringBootApplication(scanBasePackages = "com.bankcore")
 @EnableScheduling
 @MapperScan("com.bankcore.treasury.repository")
 public class TreasuryServiceApplication {

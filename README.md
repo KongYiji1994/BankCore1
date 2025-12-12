@@ -15,9 +15,15 @@ This repository contains a lightweight implementation of Solution A (企业现�
 - `notification-service`: Asynchronous notification gateway; consumes RabbitMQ events (支付成功/失败、对账异常) or REST calls and
   fans out to email (mock SMTP on localhost:1025) or webhook callbacks for企业 ERP 集成。
 - `frontend`: React + Vite + Ant Design workbench that surfaces account, payment, and cash pool workflows.
+- `cross-cutting`: Unified error codes, MDC trace IDs, and Actuator endpoints for health/metrics.
 
 ## Quick start
 Each module is an independent Spring Boot 2.7 application using Java 1.8, MySQL 8.x, and MyBatis for persistence.
+
+## 日志、错误码与监控
+- 统一异常：`@RestControllerAdvice` 通过自定义 `BusinessException` 与 `ErrorCode`（如 `NOT_FOUND`、`BUSINESS_RULE_VIOLATION`、`RISK_REJECTED`、`PROCESSING` 等）封装 API 错误响应，调用方可基于错误码做重试/降级或友好提示。
+- 链路追踪：全局 `TraceIdFilter` 会读取/生成 `X-Trace-Id` 写入 MDC 并回写响应头，所有日志自动带 traceId，关键日志额外打印 paymentId/accountId/customerId，方便排查跨服务与 MQ 场景。
+- 可观测性：所有 Spring Boot 服务引入 Actuator，默认暴露 `/actuator/health`、`/actuator/info`、`/actuator/metrics`，健康检查展示依赖状态，可进一步接入 Prometheus/Grafana 或 ELK/SkyWalking。
 
 1. Start MySQL 8.x and RabbitMQ locally (recommended: Docker) and load the schema/seed data:
    ```bash

@@ -7,6 +7,8 @@ import com.bankcore.risk.model.RiskDecisionResult;
 import com.bankcore.risk.model.RiskRule;
 import com.bankcore.risk.repository.RiskDecisionLogRepository;
 import com.bankcore.risk.repository.RiskRuleRepository;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
@@ -20,6 +22,7 @@ public class RiskEngineService {
     private static final String RULE_LIMIT_PER_TXN = "LIMIT_PER_TXN";
     private static final String RULE_LIMIT_DAILY = "LIMIT_DAILY";
     private static final String RULE_BLACKLIST = "BLACKLIST";
+    private static final Logger log = LoggerFactory.getLogger(RiskEngineService.class);
 
     private final RiskRuleRepository riskRuleRepository;
     private final RiskDecisionLogRepository decisionLogRepository;
@@ -32,6 +35,8 @@ public class RiskEngineService {
 
     public RiskDecision evaluate(RiskController.RiskRequest request) {
         List<RiskRule> rules = riskRuleRepository.findEnabled();
+        log.info("evaluating risk for customer={}, account={}, amount={}",
+                request.getCustomerId(), request.getPayerAccount(), request.getAmount());
         RiskDecision decision = new RiskDecision();
         decision.setDecisionId(UUID.randomUUID().toString());
         decision.setResult(RiskDecisionResult.APPROVED);
