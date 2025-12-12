@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.bankcore.settlement.repository.ReconciliationBreakMapper">
+
+    <resultMap id="BreakMap" type="com.bankcore.settlement.model.ReconciliationBreak">
+        <id property="id" column="id" />
+        <result property="summaryId" column="summary_id" />
+        <result property="instructionId" column="instruction_id" />
+        <result property="externalReference" column="external_reference" />
+        <result property="breakType" column="break_type" javaType="com.bankcore.settlement.model.ReconciliationBreakType" />
+        <result property="internalAmount" column="internal_amount" />
+        <result property="externalAmount" column="external_amount" />
+        <result property="currency" column="currency" />
+        <result property="remark" column="remark" />
+    </resultMap>
+
+    <insert id="insertBreaks" parameterType="java.util.List">
+        INSERT INTO recon_break(summary_id, instruction_id, external_reference, break_type, internal_amount, external_amount, currency, remark)
+        VALUES
+        <foreach collection="list" item="item" separator=",">
+            (#{item.summaryId}, #{item.instructionId}, #{item.externalReference}, #{item.breakType}, #{item.internalAmount}, #{item.externalAmount}, #{item.currency}, #{item.remark})
+        </foreach>
+    </insert>
+
+    <select id="findBySummaryId" parameterType="long" resultMap="BreakMap">
+        SELECT id, summary_id, instruction_id, external_reference, break_type, internal_amount, external_amount, currency, remark
+        FROM recon_break
+        WHERE summary_id = #{summaryId}
+    </select>
+</mapper>
