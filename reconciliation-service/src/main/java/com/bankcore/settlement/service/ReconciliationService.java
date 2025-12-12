@@ -12,6 +12,8 @@ import com.bankcore.settlement.repository.ReconciliationSummaryMapper;
 import org.apache.commons.csv.CSVFormat;
 import org.apache.commons.csv.CSVParser;
 import org.apache.commons.csv.CSVRecord;
+import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.core.task.AsyncTaskExecutor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
@@ -24,9 +26,13 @@ import java.nio.charset.StandardCharsets;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
-import java.util.HashMap;
+import java.util.Collections;
 import java.util.List;
-import java.util.Map;
+import java.util.concurrent.Callable;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.Future;
+import java.util.concurrent.atomic.AtomicInteger;
 
 /**
  * 对账服务：处理外部对账文件导入、比对内外流水、生成差异及汇总报表。
@@ -37,16 +43,19 @@ public class ReconciliationService {
     private final PaymentMapper paymentMapper;
     private final ReconciliationBreakMapper breakMapper;
     private final ReconciliationSummaryMapper summaryMapper;
+    private final AsyncTaskExecutor reconciliationTaskExecutor;
 
     /**
      * 构造注入对账涉及的仓储。
      */
     public ReconciliationService(PaymentMapper paymentMapper,
                                  ReconciliationBreakMapper breakMapper,
-                                 ReconciliationSummaryMapper summaryMapper) {
+                                 ReconciliationSummaryMapper summaryMapper,
+                                 @Qualifier("reconciliationTaskExecutor") AsyncTaskExecutor reconciliationTaskExecutor) {
         this.paymentMapper = paymentMapper;
         this.breakMapper = breakMapper;
         this.summaryMapper = summaryMapper;
+        this.reconciliationTaskExecutor = reconciliationTaskExecutor;
     }
 
     /**
@@ -58,30 +67,36 @@ public class ReconciliationService {
         List<ExternalPaymentRecord> externalRecords = parseExternalFile(file);
 
         List<PaymentRecord> internalPayments = paymentMapper.findPaymentsForDate(targetDate);
-        Map<String, PaymentRecord> internalMap = new HashMap<String, PaymentRecord>();
+        ConcurrentHashMap<String, PaymentRecord> internalMap = new ConcurrentHashMap<String, PaymentRecord>();
         for (PaymentRecord record : internalPayments) {
             internalMap.put(record.getInstructionId(), record);
         }
 
-        List<ReconciliationBreak> breaks = new ArrayList<ReconciliationBreak>();
-        int matched = 0;
-        int externalOnly = 0;
-        int amountMismatch = 0;
+        List<Future<ReconciliationSliceResult>> futures = new ArrayList<Future<ReconciliationSliceResult>>();
+        int batchSize = Math.max(1000, externalRecords.size() / 16); // 动态分片，兼顾小文件与超大文件
+        for (int i = 0; i < externalRecords.size(); i += batchSize) {
+            int end = Math.min(i + batchSize, externalRecords.size());
+            List<ExternalPaymentRecord> slice = externalRecords.subList(i, end);
+            futures.add(reconciliationTaskExecutor.submit(new ReconciliationSliceTask(slice, internalMap, targetDate)));
+        }
 
-        for (ExternalPaymentRecord external : externalRecords) {
-            PaymentRecord internal = internalMap.get(external.getInstructionId());
-            if (internal == null) {
-                externalOnly++;
-                breaks.add(buildBreak(null, external, ReconciliationBreakType.EXTERNAL_ONLY, targetDate));
-            } else {
-                if (internal.getAmount().compareTo(external.getAmount()) == 0
-                        && internal.getCurrency().equalsIgnoreCase(external.getCurrency())) {
-                    matched++;
-                } else {
-                    amountMismatch++;
-                    breaks.add(buildBreak(internal, external, ReconciliationBreakType.AMOUNT_MISMATCH, targetDate));
-                }
-                internalMap.remove(external.getInstructionId());
+        AtomicInteger matched = new AtomicInteger();
+        AtomicInteger externalOnly = new AtomicInteger();
+        AtomicInteger amountMismatch = new AtomicInteger();
+        List<ReconciliationBreak> breaks = Collections.synchronizedList(new ArrayList<ReconciliationBreak>());
+
+        for (Future<ReconciliationSliceResult> future : futures) {
+            try {
+                ReconciliationSliceResult sliceResult = future.get();
+                matched.addAndGet(sliceResult.matched);
+                externalOnly.addAndGet(sliceResult.externalOnly);
+                amountMismatch.addAndGet(sliceResult.amountMismatch);
+                breaks.addAll(sliceResult.breaks);
+            } catch (InterruptedException ie) {
+                Thread.currentThread().interrupt();
+                throw new IOException("Reconciliation interrupted", ie);
+            } catch (ExecutionException ee) {
+                throw new IOException("Reconciliation execution failed", ee);
             }
         }
 
@@ -95,10 +110,10 @@ public class ReconciliationService {
         summary.setFileName(file.getOriginalFilename());
         summary.setReconDate(targetDate);
         summary.setTotalCount(externalRecords.size() + internalOnly);
-        summary.setMatchedCount(matched);
-        summary.setExternalOnlyCount(externalOnly);
+        summary.setMatchedCount(matched.get());
+        summary.setExternalOnlyCount(externalOnly.get());
         summary.setInternalOnlyCount(internalOnly);
-        summary.setAmountMismatchCount(amountMismatch);
+        summary.setAmountMismatchCount(amountMismatch.get());
         summary.setCreatedAt(LocalDateTime.now());
         summaryMapper.insertSummary(summary);
 
@@ -203,5 +218,53 @@ public class ReconciliationService {
             reconciliationBreak.setRemark("Internal payment missing in external file on " + reconDate.toString());
         }
         return reconciliationBreak;
+    }
+
+    /**
+     * 分片任务：在固定大小的列表上进行对账对比，返回分段汇总结果。
+     */
+    private class ReconciliationSliceTask implements Callable<ReconciliationSliceResult> {
+        private final List<ExternalPaymentRecord> slice;
+        private final ConcurrentHashMap<String, PaymentRecord> internalMap;
+        private final LocalDate reconDate;
+
+        ReconciliationSliceTask(List<ExternalPaymentRecord> slice,
+                                ConcurrentHashMap<String, PaymentRecord> internalMap,
+                                LocalDate reconDate) {
+            this.slice = slice;
+            this.internalMap = internalMap;
+            this.reconDate = reconDate;
+        }
+
+        @Override
+        public ReconciliationSliceResult call() {
+            ReconciliationSliceResult result = new ReconciliationSliceResult();
+            for (ExternalPaymentRecord external : slice) {
+                PaymentRecord internal = internalMap.remove(external.getInstructionId());
+                if (internal == null) {
+                    result.externalOnly++;
+                    result.breaks.add(buildBreak(null, external, ReconciliationBreakType.EXTERNAL_ONLY, reconDate));
+                } else {
+                    if (internal.getAmount().compareTo(external.getAmount()) == 0
+                            && internal.getCurrency().equalsIgnoreCase(external.getCurrency())) {
+                        result.matched++;
+                    } else {
+                        result.amountMismatch++;
+                        result.breaks.add(buildBreak(internal, external, ReconciliationBreakType.AMOUNT_MISMATCH, reconDate));
+                    }
+                }
+            }
+            return result;
+        }
+    }
+
+    /**
+     * 分片汇总结果，用于多线程对账后统一汇聚统计。
+     */
+    private static class ReconciliationSliceResult {
+        private int matched;
+        private int externalOnly;
+        private int amountMismatch;
+        private List<ReconciliationBreak> breaks = new ArrayList<ReconciliationBreak>();
     }
 }
