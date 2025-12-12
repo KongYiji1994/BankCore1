@@ -26,10 +26,10 @@ Each module is an independent Spring Boot 2.7 application using Java 1.8, MySQL 
 - 可观测性：所有 Spring Boot 服务引入 Actuator，默认暴露 `/actuator/health`、`/actuator/info`、`/actuator/metrics`，健康检查展示依赖状态，可进一步接入 Prometheus/Grafana 或 ELK/SkyWalking。
 - 接口文档：所有服务内置 Knife4j（基于 Swagger2，兼容 JDK8 + Spring Boot 2.7），启动后访问 `http://localhost:{port}/doc.html` 查看交互式接口文档，例如账户服务 `http://localhost:8081/doc.html`、支付服务 `http://localhost:8083/doc.html`、资金池服务 `http://localhost:8084/doc.html`、KYC 客户服务 `http://localhost:8082/doc.html`，便于调试或展示。
 
-1. Start MySQL 8.x and RabbitMQ locally (recommended: Docker) and load the schema/seed data:
+1. Start MySQL 8.x, RabbitMQ, and Redis locally (recommended: Docker) and load the schema/seed data. Redis is required for payment idempotency/distributed locks:
    ```bash
-   # start MySQL + RabbitMQ with sample schema automatically loaded
-   docker compose up -d mysql rabbitmq
+   # start MySQL + RabbitMQ + Redis with sample schema automatically loaded
+   docker compose up -d mysql rabbitmq redis
 
    # or load the schema manually into an existing instance
    mysql -u bankcore -p < sql/mysql-schema.sql

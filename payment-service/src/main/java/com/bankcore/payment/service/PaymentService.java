@@ -25,77 +25,75 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 public class PaymentService {
     private static final Logger log = LoggerFactory.getLogger(PaymentService.class);
+    private static final long REQUEST_LOCK_TTL_SECONDS = 120L;
     private final PaymentRepository repository;
     private final PaymentRequestRepository requestRepository;
     private final AccountClient accountClient;
     private final CustomerClient customerClient;
     private final PaymentEventPublisher paymentEventPublisher;
+    private final PaymentIdempotencyManager idempotencyManager;
 
     public PaymentService(PaymentRepository repository,
                           PaymentRequestRepository requestRepository,
                           AccountClient accountClient,
                           CustomerClient customerClient,
-                          PaymentEventPublisher paymentEventPublisher) {
+                          PaymentEventPublisher paymentEventPublisher,
+                          PaymentIdempotencyManager idempotencyManager) {
         this.repository = repository;
         this.requestRepository = requestRepository;
         this.accountClient = accountClient;
         this.customerClient = customerClient;
         this.paymentEventPublisher = paymentEventPublisher;
+        this.idempotencyManager = idempotencyManager;
     }
 
     @Transactional
     public PaymentInstruction submit(PaymentRequest request) {
-        PaymentRequestRecord existing = requestRepository.findByRequestId(request.getRequestId()).orElse(null);
-        if (existing != null) {
-            if (existing.getStatus() == PaymentRequestStatus.SUCCEEDED && existing.getPaymentInstructionId() != null) {
-                return repository.findById(existing.getPaymentInstructionId())
-                        .orElseThrow(() -> new BusinessException(ErrorCode.NOT_FOUND,
-                                "Payment previously succeeded but record missing"));
+        boolean lockAcquired = idempotencyManager.tryAcquireRequestLock(request.getRequestId(), REQUEST_LOCK_TTL_SECONDS);
+        if (!lockAcquired) {
+            log.info("request {} already locked, returning existing result if present", request.getRequestId());
+            return resolveExistingRequest(request.getRequestId());
+        }
+        try {
+            PaymentRequestRecord existing = requestRepository.findByRequestId(request.getRequestId()).orElse(null);
+            if (existing != null) {
+                return handleExistingRequest(existing);
             }
-            if (existing.getStatus() == PaymentRequestStatus.PENDING || existing.getStatus() == PaymentRequestStatus.PROCESSING) {
-                if (existing.getPaymentInstructionId() != null) {
-                    return repository.findById(existing.getPaymentInstructionId())
-                            .orElseThrow(() -> new BusinessException(ErrorCode.NOT_FOUND, "Processing payment not found"));
-                }
-                throw new BusinessException(ErrorCode.PROCESSING, "Payment request is already being processed");
+            AccountDTO payerAccount = accountClient.getAccount(request.getPayerAccount());
+            if (payerAccount == null) {
+                throw new BusinessException(ErrorCode.NOT_FOUND, "Payer account not found");
             }
-        }
-        AccountDTO payerAccount = accountClient.getAccount(request.getPayerAccount());
-        if (payerAccount == null) {
-            throw new BusinessException(ErrorCode.NOT_FOUND, "Payer account not found");
-        }
-        CustomerClient.CustomerProfile payerCustomer = customerClient.getCustomer(payerAccount.getCustomerId());
-        if (payerCustomer == null) {
-            throw new BusinessException(ErrorCode.NOT_FOUND, "Customer not found for account");
-        }
-        String payerStatus = payerCustomer.getStatus() == null ? "NORMAL" : payerCustomer.getStatus();
-        if ("BLOCKED".equalsIgnoreCase(payerStatus)) {
-            throw new BusinessException(ErrorCode.RISK_REJECTED, "Payer customer is blocked");
-        }
-        PaymentInstruction instruction = new PaymentInstruction(
-                request.getRequestId(),
-                request.getInstructionId(),
-                request.getPayerAccount(),
-                request.getPayeeAccount(),
-                payerAccount.getCustomerId(),
-                payerStatus,
-                request.getCurrency(),
-                request.getAmount(),
-                request.getPurpose(),
-                request.getChannel(),
-                request.getBatchId(),
-                request.getPriority(),
-                PaymentStatus.PENDING);
-        log.info("enqueuing payment requestId={}, instructionId={}, payerAccount={}, amount={}",
-                instruction.getRequestId(), instruction.getInstructionId(), instruction.getPayerAccount(), instruction.getAmount());
-        repository.save(instruction);
-        if (existing == null) {
+            CustomerClient.CustomerProfile payerCustomer = customerClient.getCustomer(payerAccount.getCustomerId());
+            if (payerCustomer == null) {
+                throw new BusinessException(ErrorCode.NOT_FOUND, "Customer not found for account");
+            }
+            String payerStatus = payerCustomer.getStatus() == null ? "NORMAL" : payerCustomer.getStatus();
+            if ("BLOCKED".equalsIgnoreCase(payerStatus)) {
+                throw new BusinessException(ErrorCode.RISK_REJECTED, "Payer customer is blocked");
+            }
+            PaymentInstruction instruction = new PaymentInstruction(
+                    request.getRequestId(),
+                    request.getInstructionId(),
+                    request.getPayerAccount(),
+                    request.getPayeeAccount(),
+                    payerAccount.getCustomerId(),
+                    payerStatus,
+                    request.getCurrency(),
+                    request.getAmount(),
+                    request.getPurpose(),
+                    request.getChannel(),
+                    request.getBatchId(),
+                    request.getPriority(),
+                    PaymentStatus.PENDING);
+            log.info("enqueuing payment requestId={}, instructionId={}, payerAccount={}, amount={}",
+                    instruction.getRequestId(), instruction.getInstructionId(), instruction.getPayerAccount(), instruction.getAmount());
+            repository.save(instruction);
             requestRepository.createPending(request.getRequestId(), instruction.getInstructionId());
-        } else {
-            requestRepository.updateStatus(request.getRequestId(), PaymentRequestStatus.PENDING, instruction.getInstructionId(), "replay after failure");
+            paymentEventPublisher.publishAsync(request.getRequestId(), instruction.getInstructionId());
+            return instruction;
+        } finally {
+            idempotencyManager.releaseRequestLock(request.getRequestId());
         }
-        paymentEventPublisher.publishAsync(request.getRequestId(), instruction.getInstructionId());
-        return instruction;
     }
 
     public PaymentInstruction enqueueForProcessing(String instructionId) {
@@ -152,5 +150,32 @@ public class PaymentService {
 
     public List<PaymentInstruction> list() {
         return repository.findAll();
+    }
+
+    private PaymentInstruction handleExistingRequest(PaymentRequestRecord existing) {
+        if (existing.getStatus() == PaymentRequestStatus.SUCCEEDED && existing.getPaymentInstructionId() != null) {
+            return repository.findById(existing.getPaymentInstructionId())
+                    .orElseThrow(() -> new BusinessException(ErrorCode.NOT_FOUND,
+                            "Payment previously succeeded but record missing"));
+        }
+        if (existing.getStatus() == PaymentRequestStatus.PENDING || existing.getStatus() == PaymentRequestStatus.PROCESSING) {
+            if (existing.getPaymentInstructionId() != null) {
+                return repository.findById(existing.getPaymentInstructionId())
+                        .orElseThrow(() -> new BusinessException(ErrorCode.NOT_FOUND, "Processing payment not found"));
+            }
+            throw new BusinessException(ErrorCode.PROCESSING, "Payment request is already being processed");
+        }
+        if (existing.getStatus() == PaymentRequestStatus.FAILED) {
+            throw new BusinessException(ErrorCode.FAILED, "Previous attempt failed: " + existing.getStatusReason());
+        }
+        throw new BusinessException(ErrorCode.PROCESSING, "Payment request is already being processed");
+    }
+
+    private PaymentInstruction resolveExistingRequest(String requestId) {
+        PaymentRequestRecord existing = requestRepository.findByRequestId(requestId).orElse(null);
+        if (existing == null) {
+            throw new BusinessException(ErrorCode.PROCESSING, "Payment request is being created, please retry later");
+        }
+        return handleExistingRequest(existing);
     }
 }
