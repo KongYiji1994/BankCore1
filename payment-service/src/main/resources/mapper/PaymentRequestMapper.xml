@@ -26,4 +26,11 @@
         SET status = #{status}, payment_instruction_id = #{paymentInstructionId}, message = #{message}, updated_at = NOW()
         WHERE request_id = #{requestId}
     </update>
+
+    <update id="compareAndUpdateStatus">
+        UPDATE payment_requests
+        SET status = #{status}, payment_instruction_id = #{paymentInstructionId}, message = #{message}, updated_at = NOW()
+        WHERE request_id = #{requestId}
+          AND status = #{expectedStatus}
+    </update>
 </mapper>

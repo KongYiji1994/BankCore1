@@ -15,4 +15,10 @@ public interface PaymentRequestMapper {
                       @Param("status") String status,
                       @Param("paymentInstructionId") String paymentInstructionId,
                       @Param("message") String message);
+
+    int compareAndUpdateStatus(@Param("requestId") String requestId,
+                               @Param("expectedStatus") String expectedStatus,
+                               @Param("status") String status,
+                               @Param("paymentInstructionId") String paymentInstructionId,
+                               @Param("message") String message);
 }

@@ -17,8 +17,8 @@ public class RiskClient {
         this.riskServiceBaseUrl = riskServiceBaseUrl;
     }
 
-    public RiskDecisionResponse evaluate(BigDecimal amount, String customerId, String channel, String payerAccount) {
-        RiskRequest payload = new RiskRequest(amount, customerId, channel, payerAccount);
+    public RiskDecisionResponse evaluate(BigDecimal amount, String customerId, String channel, String payerAccount, String requestId) {
+        RiskRequest payload = new RiskRequest(amount, customerId, channel, payerAccount, requestId);
         return restTemplate.postForObject(riskServiceBaseUrl + "/risk/evaluate", payload, RiskDecisionResponse.class);
     }
 
@@ -27,15 +27,17 @@ public class RiskClient {
         private String customerId;
         private String channel;
         private String payerAccount;
+        private String requestId;
 
         public RiskRequest() {
         }
 
-        public RiskRequest(BigDecimal amount, String customerId, String channel, String payerAccount) {
+        public RiskRequest(BigDecimal amount, String customerId, String channel, String payerAccount, String requestId) {
             this.amount = amount;
             this.customerId = customerId;
             this.channel = channel;
             this.payerAccount = payerAccount;
+            this.requestId = requestId;
         }
 
         public BigDecimal getAmount() {
@@ -68,6 +70,14 @@ public class RiskClient {
 
         public void setPayerAccount(String payerAccount) {
             this.payerAccount = payerAccount;
+        }
+
+        public String getRequestId() {
+            return requestId;
+        }
+
+        public void setRequestId(String requestId) {
+            this.requestId = requestId;
         }
     }
 

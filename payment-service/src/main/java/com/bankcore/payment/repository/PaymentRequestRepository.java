@@ -26,6 +26,11 @@ public class PaymentRequestRepository {
         mapper.updateStatus(requestId, status.name(), paymentInstructionId, message);
     }
 
+    public boolean updateStatusIfMatch(String requestId, PaymentRequestStatus expected, PaymentRequestStatus status,
+                                       String paymentInstructionId, String message) {
+        return mapper.compareAndUpdateStatus(requestId, expected.name(), status.name(), paymentInstructionId, message) > 0;
+    }
+
     public PaymentRequestRecord createPending(String requestId, String paymentInstructionId) {
         PaymentRequestRecord record = new PaymentRequestRecord(requestId, paymentInstructionId, PaymentRequestStatus.PENDING);
         record.setCreatedAt(LocalDateTime.now());

@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.bankcore.account.repository.AccountLedgerMapper">
+    <resultMap id="AccountLedgerResult" type="com.bankcore.account.model.AccountLedgerEntry">
+        <id property="entryId" column="entry_id"/>
+        <result property="requestId" column="request_id"/>
+        <result property="accountId" column="account_id"/>
+        <result property="operation" column="operation"/>
+        <result property="amount" column="amount"/>
+        <result property="totalAfter" column="total_after"/>
+        <result property="availableAfter" column="available_after"/>
+        <result property="frozenAfter" column="frozen_after"/>
+        <result property="createdAt" column="created_at"/>
+    </resultMap>
+
+    <select id="findByRequestId" parameterType="string" resultMap="AccountLedgerResult">
+        SELECT entry_id, request_id, account_id, operation, amount, total_after, available_after, frozen_after, created_at
+        FROM account_ledger
+        WHERE request_id = #{requestId}
+    </select>
+
+    <insert id="insert" parameterType="com.bankcore.account.model.AccountLedgerEntry">
+        INSERT INTO account_ledger(entry_id, request_id, account_id, operation, amount, total_after, available_after, frozen_after, created_at)
+        VALUES(#{entryId}, #{requestId}, #{accountId}, #{operation}, #{amount}, #{totalAfter}, #{availableAfter}, #{frozenAfter}, #{createdAt})
+    </insert>
+</mapper>

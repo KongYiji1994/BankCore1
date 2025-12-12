@@ -52,6 +52,19 @@ CREATE TABLE IF NOT EXISTS payment_requests (
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
+CREATE TABLE IF NOT EXISTS account_ledger (
+    entry_id VARCHAR(64) PRIMARY KEY,
+    request_id VARCHAR(128) NOT NULL,
+    account_id VARCHAR(64) NOT NULL,
+    operation VARCHAR(32) NOT NULL,
+    amount DECIMAL(18,2) NOT NULL,
+    total_after DECIMAL(18,2) NOT NULL,
+    available_after DECIMAL(18,2) NOT NULL,
+    frozen_after DECIMAL(18,2) NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE KEY uk_account_request (request_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
 CREATE TABLE IF NOT EXISTS recon_summary (
     id BIGINT PRIMARY KEY AUTO_INCREMENT,
     file_name VARCHAR(255) NOT NULL,

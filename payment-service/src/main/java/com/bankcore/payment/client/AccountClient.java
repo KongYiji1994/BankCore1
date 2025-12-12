@@ -21,18 +21,18 @@ public class AccountClient {
         return restTemplate.getForObject(url, AccountDTO.class);
     }
 
-    public AccountDTO freeze(String accountId, java.math.BigDecimal amount) {
-        String url = accountServiceBaseUrl + "/accounts/" + accountId + "/freeze?amount=" + amount;
+    public AccountDTO freeze(String accountId, java.math.BigDecimal amount, String requestId) {
+        String url = accountServiceBaseUrl + "/accounts/" + accountId + "/freeze?amount=" + amount + "&requestId=" + requestId;
         return restTemplate.postForObject(url, null, AccountDTO.class);
     }
 
-    public AccountDTO unfreeze(String accountId, java.math.BigDecimal amount) {
-        String url = accountServiceBaseUrl + "/accounts/" + accountId + "/unfreeze?amount=" + amount;
+    public AccountDTO unfreeze(String accountId, java.math.BigDecimal amount, String requestId) {
+        String url = accountServiceBaseUrl + "/accounts/" + accountId + "/unfreeze?amount=" + amount + "&requestId=" + requestId;
         return restTemplate.postForObject(url, null, AccountDTO.class);
     }
 
-    public AccountDTO settle(String accountId, java.math.BigDecimal amount) {
-        String url = accountServiceBaseUrl + "/accounts/" + accountId + "/settle?amount=" + amount;
+    public AccountDTO settle(String accountId, java.math.BigDecimal amount, String requestId) {
+        String url = accountServiceBaseUrl + "/accounts/" + accountId + "/settle?amount=" + amount + "&requestId=" + requestId;
         return restTemplate.postForObject(url, null, AccountDTO.class);
     }
 }

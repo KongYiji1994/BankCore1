@@ -1,6 +1,8 @@
 package com.bankcore.account.service;
 
 import com.bankcore.account.model.Account;
+import com.bankcore.account.model.AccountLedgerEntry;
+import com.bankcore.account.repository.AccountLedgerRepository;
 import com.bankcore.account.repository.AccountRepository;
 import com.bankcore.common.dto.AccountDTO;
 import com.bankcore.common.error.BusinessException;
@@ -12,6 +14,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
@@ -23,6 +26,7 @@ import java.util.stream.Collectors;
 public class AccountService {
     private static final Logger log = LoggerFactory.getLogger(AccountService.class);
     private final AccountRepository repository;
+    private final AccountLedgerRepository ledgerRepository;
     private final AccountLockManager lockManager;
 
     /**
@@ -33,8 +37,9 @@ public class AccountService {
     /**
      * 构造函数注入仓储接口，便于单元测试与替换实现。
      */
-    public AccountService(AccountRepository repository, AccountLockManager lockManager) {
+    public AccountService(AccountRepository repository, AccountLedgerRepository ledgerRepository, AccountLockManager lockManager) {
         this.repository = repository;
+        this.ledgerRepository = ledgerRepository;
         this.lockManager = lockManager;
     }
 
@@ -54,13 +59,14 @@ public class AccountService {
      * 收款入账：增加总余额与可用余额。
      */
     @Transactional
-    public AccountDTO credit(String accountId, BigDecimal amount) {
-        return executeWithLock(accountId, new AccountOperation<AccountDTO>() {
+    public AccountDTO credit(String accountId, BigDecimal amount, String requestId) {
+        return idempotentOperation(requestId, accountId, "CREDIT", amount, new AccountOperation<AccountDTO>() {
             @Override
             public AccountDTO apply(Account account) {
                 account.credit(amount);
                 repository.update(account);
                 log.info("credited account {} amount {}", accountId, amount);
+                saveLedger(requestId, accountId, "CREDIT", amount, account);
                 return toDto(account);
             }
         });
@@ -70,13 +76,14 @@ public class AccountService {
      * 支付前冻结：先扣减可用余额、增加冻结金额，防止超扣。
      */
     @Transactional
-    public AccountDTO freezeAmount(String accountId, BigDecimal amount) {
-        return executeWithLock(accountId, new AccountOperation<AccountDTO>() {
+    public AccountDTO freezeAmount(String accountId, BigDecimal amount, String requestId) {
+        return idempotentOperation(requestId, accountId, "FREEZE", amount, new AccountOperation<AccountDTO>() {
             @Override
             public AccountDTO apply(Account account) {
                 account.prepareDebit(amount);
                 repository.update(account);
                 log.info("frozen amount {} on account {}", amount, accountId);
+                saveLedger(requestId, accountId, "FREEZE", amount, account);
                 return toDto(account);
             }
         });
@@ -86,13 +93,14 @@ public class AccountService {
      * 清算成功：减少总余额与冻结金额，完成出账。
      */
     @Transactional
-    public AccountDTO settle(String accountId, BigDecimal amount) {
-        return executeWithLock(accountId, new AccountOperation<AccountDTO>() {
+    public AccountDTO settle(String accountId, BigDecimal amount, String requestId) {
+        return idempotentOperation(requestId, accountId, "SETTLE", amount, new AccountOperation<AccountDTO>() {
             @Override
             public AccountDTO apply(Account account) {
                 account.settleDebit(amount);
                 repository.update(account);
                 log.info("settled debit amount {} on account {}", amount, accountId);
+                saveLedger(requestId, accountId, "SETTLE", amount, account);
                 return toDto(account);
             }
         });
@@ -102,13 +110,14 @@ public class AccountService {
      * 取消支付或失败补偿：释放冻结金额、恢复可用余额。
      */
     @Transactional
-    public AccountDTO unfreeze(String accountId, BigDecimal amount) {
-        return executeWithLock(accountId, new AccountOperation<AccountDTO>() {
+    public AccountDTO unfreeze(String accountId, BigDecimal amount, String requestId) {
+        return idempotentOperation(requestId, accountId, "UNFREEZE", amount, new AccountOperation<AccountDTO>() {
             @Override
             public AccountDTO apply(Account account) {
                 account.releaseFrozen(amount);
                 repository.update(account);
                 log.info("unfroze amount {} on account {}", amount, accountId);
+                saveLedger(requestId, accountId, "UNFREEZE", amount, account);
                 return toDto(account);
             }
         });
@@ -192,6 +201,38 @@ public class AccountService {
         } finally {
             lockManager.unlock(accountId);
         }
+    }
+
+    private <T> T idempotentOperation(String requestId, String accountId, String operation, BigDecimal amount,
+                                      AccountOperation<T> callback) {
+        String normalizedRequestId = (requestId == null || requestId.trim().isEmpty())
+                ? UUID.randomUUID().toString()
+                : requestId.trim();
+        Optional<com.bankcore.account.model.AccountLedgerEntry> existing = ledgerRepository.findByRequestId(normalizedRequestId);
+        if (existing.isPresent()) {
+            log.info("ledger request {} for account {} already processed, skipping duplicate {}", normalizedRequestId, accountId, operation);
+            return (T) toDto(findAccount(accountId));
+        }
+        return executeWithLock(accountId, new AccountOperation<T>() {
+            @Override
+            public T apply(Account account) {
+                T result = callback.apply(account);
+                return result;
+            }
+        });
+    }
+
+    private void saveLedger(String requestId, String accountId, String operation, BigDecimal amount, Account account) {
+        AccountLedgerEntry entry = new AccountLedgerEntry(
+                UUID.randomUUID().toString(),
+                (requestId == null || requestId.trim().isEmpty()) ? UUID.randomUUID().toString() : requestId.trim(),
+                accountId,
+                operation,
+                amount,
+                account.getTotalBalance(),
+                account.getAvailableBalance(),
+                account.getFrozenBalance());
+        ledgerRepository.save(entry);
     }
 
     /**

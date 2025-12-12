@@ -16,7 +16,16 @@ public interface PaymentMapper {
 
     void updateStatus(@Param("instructionId") String instructionId, @Param("status") String status);
 
+    int compareAndUpdateStatus(@Param("instructionId") String instructionId,
+                               @Param("expectedStatus") String expectedStatus,
+                               @Param("status") String status);
+
     void updateRisk(@Param("instructionId") String instructionId,
                     @Param("riskScore") java.math.BigDecimal riskScore,
                     @Param("status") String status);
+
+    int compareAndUpdateRisk(@Param("instructionId") String instructionId,
+                             @Param("riskScore") java.math.BigDecimal riskScore,
+                             @Param("expectedStatus") String expectedStatus,
+                             @Param("status") String status);
 }

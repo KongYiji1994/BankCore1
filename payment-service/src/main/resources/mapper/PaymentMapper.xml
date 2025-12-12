@@ -42,9 +42,23 @@
         WHERE instruction_id = #{instructionId}
     </update>
 
+    <update id="compareAndUpdateStatus">
+        UPDATE payments
+        SET status = #{status}
+        WHERE instruction_id = #{instructionId}
+          AND status = #{expectedStatus}
+    </update>
+
     <update id="updateRisk">
         UPDATE payments
         SET status = #{status}, risk_score = #{riskScore}
         WHERE instruction_id = #{instructionId}
+    </update>
+
+    <update id="compareAndUpdateRisk">
+        UPDATE payments
+        SET status = #{status}, risk_score = #{riskScore}
+        WHERE instruction_id = #{instructionId}
+          AND status = #{expectedStatus}
     </update>
 </mapper>

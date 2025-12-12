@@ -48,6 +48,18 @@ public class RiskEngineService {
      * 执行风控评估：遍历规则并生成决策，默认通过。
      */
     public RiskDecision evaluate(RiskController.RiskRequest request) {
+        RiskDecision cached = riskCacheManager.getCachedDecision(request.getRequestId());
+        if (cached != null) {
+            log.info("reuse cached risk decision for requestId={}", request.getRequestId());
+            return cached;
+        }
+        if (!riskCacheManager.tryMarkProcessing(request.getRequestId())) {
+            RiskDecision pending = new RiskDecision();
+            pending.setDecisionId(UUID.randomUUID().toString());
+            pending.setResult(RiskDecisionResult.REVIEW);
+            pending.setReason("Duplicate risk evaluation in progress");
+            return pending;
+        }
         // 通过 Redis 做规则缓存，减少每次支付都访问数据库的开销，5 分钟刷新一次
         List<RiskRule> rules = riskCacheManager.loadEnabledRules(new Supplier<List<RiskRule>>() {
             @Override
@@ -97,6 +109,7 @@ public class RiskEngineService {
         }
 
         saveAudit(decision, request);
+        riskCacheManager.cacheDecision(request.getRequestId(), decision);
         return decision;
     }
 
