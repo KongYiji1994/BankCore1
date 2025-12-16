@@ -7,14 +7,23 @@ import java.time.LocalDateTime;
  * 账户流水：用于实现请求级幂等，防止重复的冻结/扣款/解冻等操作被执行多次。
  */
 public class AccountLedgerEntry {
+    /** 流水唯一标识 */
     private String entryId;
+    /** 对应的请求ID，用于幂等校验 */
     private String requestId;
+    /** 关联账户ID */
     private String accountId;
+    /** 操作类型（如冻结、扣款、解冻等） */
     private String operation;
+    /** 本次操作金额 */
     private BigDecimal amount;
+    /** 操作后账户总余额 */
     private BigDecimal totalAfter;
+    /** 操作后账户可用余额 */
     private BigDecimal availableAfter;
+    /** 操作后账户冻结余额 */
     private BigDecimal frozenAfter;
+    /** 流水创建时间 */
     private LocalDateTime createdAt;
 
     public AccountLedgerEntry() {

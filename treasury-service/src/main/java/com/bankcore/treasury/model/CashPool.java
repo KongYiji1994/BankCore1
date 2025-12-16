@@ -7,13 +7,21 @@ import java.util.HashSet;
 import java.util.Set;
 
 public class CashPool {
+    /** 现金池ID */
     private String poolId;
+    /** 头寸账户 */
     private String headerAccount;
+    /** 成员账户集合 */
     private final Set<String> memberAccounts = new HashSet<>();
+    /** 目标余额或留存额度 */
     private BigDecimal targetBalance;
+    /** 调拨策略 */
     private String strategy;
+    /** 现金池类型 */
     private String poolType;
+    /** 利率或分摊比例 */
     private BigDecimal interestRate;
+    /** 上一次计息日期 */
     private LocalDate lastInterestDate;
 
     public CashPool() {

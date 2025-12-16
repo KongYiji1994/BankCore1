@@ -3,12 +3,16 @@ package com.bankcore.notification.model;
 import javax.validation.constraints.NotBlank;
 
 public class NotificationRequest {
+    /** 通知渠道（如EMAIL、WEBHOOK） */
     @NotBlank
     private String channel;
+    /** 目标地址 */
     @NotBlank
     private String destination;
+    /** 消息内容 */
     @NotBlank
     private String content;
+    /** 消息标题 */
     private String subject;
 
     public String getChannel() {

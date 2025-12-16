@@ -1,12 +1,19 @@
 package com.bankcore.risk.model;
 
 public class RiskDecision {
+    /** 决策流水号 */
     private String decisionId;
+    /** 决策结果 */
     private RiskDecisionResult result;
+    /** 决策原因描述 */
     private String reason;
+    /** 命中的规则ID */
     private Long ruleId;
+    /** 规则类型 */
     private String ruleType;
+    /** 风险等级 */
     private String level;
+    /** 是否被拦截 */
     private boolean blocked;
 
     public String getDecisionId() {

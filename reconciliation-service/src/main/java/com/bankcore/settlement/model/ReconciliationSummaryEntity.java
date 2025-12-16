@@ -4,14 +4,23 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 
 public class ReconciliationSummaryEntity {
+    /** 汇总记录主键 */
     private Long id;
+    /** 对账文件名 */
     private String fileName;
+    /** 记录总数 */
     private int totalCount;
+    /** 匹配成功数量 */
     private int matchedCount;
+    /** 仅内部存在数量 */
     private int internalOnlyCount;
+    /** 仅外部存在数量 */
     private int externalOnlyCount;
+    /** 金额不符数量 */
     private int amountMismatchCount;
+    /** 对账日期 */
     private LocalDate reconDate;
+    /** 创建时间 */
     private LocalDateTime createdAt;
 
     public Long getId() {

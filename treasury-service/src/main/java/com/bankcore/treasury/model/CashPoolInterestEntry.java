@@ -4,12 +4,19 @@ import java.math.BigDecimal;
 import java.time.LocalDate;
 
 public class CashPoolInterestEntry {
+    /** 计息记录主键 */
     private Long id;
+    /** 关联现金池ID */
     private String poolId;
+    /** 头寸账户 */
     private String headerAccount;
+    /** 计息金额 */
     private BigDecimal interestAmount;
+    /** 计息利率 */
     private BigDecimal rate;
+    /** 计息日期 */
     private LocalDate accrualDate;
+    /** 描述信息 */
     private String description;
 
     public Long getId() {
