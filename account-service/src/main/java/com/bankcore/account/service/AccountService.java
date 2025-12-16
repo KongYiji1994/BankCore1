@@ -60,15 +60,11 @@ public class AccountService {
      */
     @Transactional
     public AccountDTO credit(String accountId, BigDecimal amount, String requestId) {
-        return idempotentOperation(requestId, accountId, "CREDIT", amount, new AccountOperation<AccountDTO>() {
-            @Override
-            public AccountDTO apply(Account account) {
-                account.credit(amount);
-                repository.update(account);
-                log.info("credited account {} amount {}", accountId, amount);
-                saveLedger(requestId, accountId, "CREDIT", amount, account);
-                return toDto(account);
-            }
+        return idempotentOperation(requestId, accountId, "CREDIT", amount, account -> {
+            account.credit(amount);
+            repository.update(account);
+            log.info("credited account {} amount {}", accountId, amount);
+            return toDto(account);
         });
     }
 
@@ -77,15 +73,11 @@ public class AccountService {
      */
     @Transactional
     public AccountDTO freezeAmount(String accountId, BigDecimal amount, String requestId) {
-        return idempotentOperation(requestId, accountId, "FREEZE", amount, new AccountOperation<AccountDTO>() {
-            @Override
-            public AccountDTO apply(Account account) {
-                account.prepareDebit(amount);
-                repository.update(account);
-                log.info("frozen amount {} on account {}", amount, accountId);
-                saveLedger(requestId, accountId, "FREEZE", amount, account);
-                return toDto(account);
-            }
+        return idempotentOperation(requestId, accountId, "FREEZE", amount, account -> {
+            account.prepareDebit(amount);
+            repository.update(account);
+            log.info("frozen amount {} on account {}", amount, accountId);
+            return toDto(account);
         });
     }
 
@@ -94,15 +86,11 @@ public class AccountService {
      */
     @Transactional
     public AccountDTO settle(String accountId, BigDecimal amount, String requestId) {
-        return idempotentOperation(requestId, accountId, "SETTLE", amount, new AccountOperation<AccountDTO>() {
-            @Override
-            public AccountDTO apply(Account account) {
-                account.settleDebit(amount);
-                repository.update(account);
-                log.info("settled debit amount {} on account {}", amount, accountId);
-                saveLedger(requestId, accountId, "SETTLE", amount, account);
-                return toDto(account);
-            }
+        return idempotentOperation(requestId, accountId, "SETTLE", amount, account -> {
+            account.settleDebit(amount);
+            repository.update(account);
+            log.info("settled debit amount {} on account {}", amount, accountId);
+            return toDto(account);
         });
     }
 
@@ -111,15 +99,11 @@ public class AccountService {
      */
     @Transactional
     public AccountDTO unfreeze(String accountId, BigDecimal amount, String requestId) {
-        return idempotentOperation(requestId, accountId, "UNFREEZE", amount, new AccountOperation<AccountDTO>() {
-            @Override
-            public AccountDTO apply(Account account) {
-                account.releaseFrozen(amount);
-                repository.update(account);
-                log.info("unfroze amount {} on account {}", amount, accountId);
-                saveLedger(requestId, accountId, "UNFREEZE", amount, account);
-                return toDto(account);
-            }
+        return idempotentOperation(requestId, accountId, "UNFREEZE", amount, account -> {
+            account.releaseFrozen(amount);
+            repository.update(account);
+            log.info("unfroze amount {} on account {}", amount, accountId);
+            return toDto(account);
         });
     }
 
@@ -128,14 +112,11 @@ public class AccountService {
      */
     @Transactional
     public AccountDTO close(String accountId) {
-        return executeWithLock(accountId, new AccountOperation<AccountDTO>() {
-            @Override
-            public AccountDTO apply(Account account) {
-                account.close();
-                repository.update(account);
-                log.info("closed account {}", accountId);
-                return toDto(account);
-            }
+        return executeWithLock(accountId, account -> {
+            account.close();
+            repository.update(account);
+            log.info("closed account {}", accountId);
+            return toDto(account);
         });
     }
 
@@ -203,23 +184,25 @@ public class AccountService {
         }
     }
 
-    private <T> T idempotentOperation(String requestId, String accountId, String operation, BigDecimal amount,
-                                      AccountOperation<T> callback) {
-        String normalizedRequestId = (requestId == null || requestId.trim().isEmpty())
-                ? UUID.randomUUID().toString()
-                : requestId.trim();
-        Optional<com.bankcore.account.model.AccountLedgerEntry> existing = ledgerRepository.findByRequestId(normalizedRequestId);
+    private AccountDTO idempotentOperation(String requestId, String accountId, String operation, BigDecimal amount,
+                                           AccountOperation<AccountDTO> callback) {
+        String normalizedRequestId = normalizeRequestId(requestId);
+        Optional<AccountLedgerEntry> existing = ledgerRepository.findByRequestId(normalizedRequestId);
         if (existing.isPresent()) {
             log.info("ledger request {} for account {} already processed, skipping duplicate {}", normalizedRequestId, accountId, operation);
-            return (T) toDto(findAccount(accountId));
+            return toDto(findAccount(accountId));
         }
-        return executeWithLock(accountId, new AccountOperation<T>() {
-            @Override
-            public T apply(Account account) {
-                T result = callback.apply(account);
-                return result;
-            }
+        return executeWithLock(accountId, account -> {
+            AccountDTO result = callback.apply(account);
+            saveLedger(normalizedRequestId, accountId, operation, amount, account);
+            return result;
         });
+    }
+
+    private String normalizeRequestId(String requestId) {
+        return (requestId == null || requestId.trim().isEmpty())
+                ? UUID.randomUUID().toString()
+                : requestId.trim();
     }
 
     private void saveLedger(String requestId, String accountId, String operation, BigDecimal amount, Account account) {
@@ -238,6 +221,7 @@ public class AccountService {
     /**
      * 账户操作模板接口，便于在加锁后传入不同的业务逻辑。
      */
+    @FunctionalInterface
     private interface AccountOperation<T> {
         T apply(Account account);
     }

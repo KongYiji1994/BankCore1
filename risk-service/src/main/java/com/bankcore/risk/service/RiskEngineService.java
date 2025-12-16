@@ -61,13 +61,8 @@ public class RiskEngineService {
             return pending;
         }
         // 通过 Redis 做规则缓存，减少每次支付都访问数据库的开销，5 分钟刷新一次
-        List<RiskRule> rules = riskCacheManager.loadEnabledRules(new Supplier<List<RiskRule>>() {
-            @Override
-            public List<RiskRule> get() {
-                return riskRuleRepository.findEnabled();
-            }
-        });
-        log.info("evaluating risk for customer={}, account={}, amount={}",
+        List<RiskRule> rules = riskCacheManager.loadEnabledRules(() -> riskRuleRepository.findEnabled());
+        log.info("evaluating risk for customer={}, account={}, amount={}", 
                 request.getCustomerId(), request.getPayerAccount(), request.getAmount());
         RiskDecision decision = new RiskDecision();
         decision.setDecisionId(UUID.randomUUID().toString());
