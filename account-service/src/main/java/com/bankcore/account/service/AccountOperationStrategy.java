@@ -1,6 +1,6 @@
 package com.bankcore.account.service;
 
-import com.bankcore.common.dto.AccountDTO;
+import com.bankcore.account.model.Account;
 import java.math.BigDecimal;
 
 /**
@@ -19,7 +19,27 @@ public interface AccountOperationStrategy {
      * @param accountId 账户ID
      * @param amount    操作金额
      * @param requestId 幂等请求ID
-     * @return 操作后的账户信息
      */
-    AccountDTO execute(String accountId, BigDecimal amount, String requestId);
+    void applyOperation(Account account, BigDecimal amount);
+
+    /**
+     * 是否需要基于请求ID做幂等处理。
+     */
+    default boolean requiresIdempotency() {
+        return true;
+    }
+
+    /**
+     * 是否需要生成分录。
+     */
+    default boolean shouldRecordLedger() {
+        return true;
+    }
+
+    /**
+     * 操作提交后的后置处理。
+     */
+    default void afterCommit(String accountId, BigDecimal amount, String requestId) {
+        // 默认无附加动作
+    }
 }

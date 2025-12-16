@@ -1,6 +1,8 @@
 package com.bankcore.account.service;
 
 import com.bankcore.account.model.Account;
+import com.bankcore.account.model.AccountLedgerEntry;
+import com.bankcore.account.repository.AccountLedgerRepository;
 import com.bankcore.account.repository.AccountRepository;
 import com.bankcore.common.dto.AccountDTO;
 import com.bankcore.common.error.BusinessException;
@@ -26,22 +28,29 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 public class AccountService {
     private static final Logger log = LoggerFactory.getLogger(AccountService.class);
+    private static final long ACCOUNT_LOCK_TTL_SECONDS = 30L;
     private final AccountRepository repository;
     private final Map<AccountOperationType, AccountOperationStrategy> strategyMap;
     private final AccountDomainSupport domainSupport;
+    private final AccountLedgerRepository ledgerRepository;
+    private final AccountLockManager lockManager;
 
     /**
      * 构造函数注入仓储接口，便于单元测试与替换实现。
      */
     public AccountService(AccountRepository repository,
                           List<AccountOperationStrategy> strategies,
-                          AccountDomainSupport domainSupport) {
+                          AccountDomainSupport domainSupport,
+                          AccountLedgerRepository ledgerRepository,
+                          AccountLockManager lockManager) {
         this.repository = repository;
         EnumMap<AccountOperationType, AccountOperationStrategy> collected = strategies.stream()
                 .collect(Collectors.toMap(AccountOperationStrategy::operationType, Function.identity(), (first, duplicate) -> first,
                         () -> new EnumMap<>(AccountOperationType.class)));
         this.strategyMap = Collections.unmodifiableMap(collected);
         this.domainSupport = domainSupport;
+        this.ledgerRepository = ledgerRepository;
+        this.lockManager = lockManager;
     }
 
     /**
@@ -121,6 +130,57 @@ public class AccountService {
         Optional<AccountOperationStrategy> strategy = Optional.ofNullable(strategyMap.get(operationType));
         AccountOperationStrategy selected = strategy.orElseThrow(
                 () -> new BusinessException(ErrorCode.BUSINESS_RULE_VIOLATION, "Unsupported account operation: " + operationType));
-        return selected.execute(accountId, amount, requestId);
+        String normalizedRequestId = normalizeRequestId(requestId);
+        if (selected.requiresIdempotency()) {
+            Optional<AccountLedgerEntry> existing = ledgerRepository.findByRequestId(normalizedRequestId);
+            if (existing.isPresent()) {
+                log.info("ledger request {} for account {} already processed, skip duplicate {}", normalizedRequestId, accountId,
+                        operationType);
+                return domainSupport.toDto(domainSupport.findAccount(accountId, true));
+            }
+        }
+
+        return executeWithLock(accountId, account -> {
+            selected.applyOperation(account, amount);
+            repository.update(account);
+            AccountDTO dto = domainSupport.toDto(account);
+            if (selected.shouldRecordLedger()) {
+                saveLedger(normalizedRequestId, accountId, amount, account, operationType);
+            }
+            selected.afterCommit(accountId, amount, normalizedRequestId);
+            return dto;
+        });
+    }
+
+    private <T> T executeWithLock(String accountId, Function<Account, T> callback) {
+        boolean locked = lockManager.tryLock(accountId, ACCOUNT_LOCK_TTL_SECONDS);
+        if (!locked) {
+            throw new BusinessException(ErrorCode.PROCESSING, "账户正在处理并发交易，请稍后重试");
+        }
+        try {
+            Account account = domainSupport.findAccount(accountId);
+            return callback.apply(account);
+        } finally {
+            lockManager.unlock(accountId);
+        }
+    }
+
+    private String normalizeRequestId(String requestId) {
+        return (requestId == null || requestId.trim().isEmpty())
+                ? UUID.randomUUID().toString()
+                : requestId.trim();
+    }
+
+    private void saveLedger(String requestId, String accountId, BigDecimal amount, Account account, AccountOperationType operationType) {
+        AccountLedgerEntry entry = new AccountLedgerEntry(
+                UUID.randomUUID().toString(),
+                requestId,
+                accountId,
+                operationType.name(),
+                amount,
+                account.getTotalBalance(),
+                account.getAvailableBalance(),
+                account.getFrozenBalance());
+        ledgerRepository.save(entry);
     }
 }
