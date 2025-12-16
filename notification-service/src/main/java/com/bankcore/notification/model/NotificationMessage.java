@@ -1,11 +1,17 @@
 package com.bankcore.notification.model;
 
 public class NotificationMessage {
+    /** 通知渠道 */
     private NotificationChannel channel;
+    /** 发送目标地址 */
     private String destination;
+    /** 通知标题 */
     private String subject;
+    /** 通知正文内容 */
     private String content;
+    /** 关联事件类型 */
     private NotificationEventType eventType;
+    /** 业务参考ID */
     private String referenceId;
 
     public NotificationChannel getChannel() {

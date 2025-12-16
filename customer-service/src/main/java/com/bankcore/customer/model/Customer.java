@@ -3,14 +3,23 @@ package com.bankcore.customer.model;
 import java.time.LocalDate;
 
 public class Customer {
+    /** 客户唯一编号 */
     private String customerId;
+    /** 客户名称 */
     private String name;
+    /** 统一社会信用代码或证件号 */
     private String creditCode;
+    /** 联系人姓名 */
     private String contactName;
+    /** 联系人电话 */
     private String contactPhone;
+    /** 客户入驻日期 */
     private LocalDate onboardDate;
+    /** 客户风险等级 */
     private String riskLevel;
+    /** 客户状态 */
     private String status;
+    /** 客户所属细分市场 */
     private String segment;
 
     public String getCustomerId() {

@@ -4,12 +4,19 @@ import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
 public class PaymentRecord {
+    /** 内部支付指令号 */
     private String instructionId;
+    /** 付款账户 */
     private String payerAccount;
+    /** 收款账户 */
     private String payeeAccount;
+    /** 支付金额 */
     private BigDecimal amount;
+    /** 支付币种 */
     private String currency;
+    /** 支付状态 */
     private String status;
+    /** 创建时间 */
     private LocalDateTime createdAt;
 
     public String getInstructionId() {

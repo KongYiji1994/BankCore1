@@ -6,14 +6,21 @@ import java.io.Serializable;
 import java.util.Map;
 
 public class NotificationEvent implements Serializable {
+    /** 事件类型 */
     @NotNull
     private NotificationEventType eventType;
+    /** 业务参考ID */
     @NotBlank
     private String referenceId;
+    /** 通知渠道 */
     private NotificationChannel channel;
+    /** 发送目标（邮箱、Webhook地址等） */
     private String destination;
+    /** 通知标题 */
     private String subject;
+    /** 通知内容 */
     private String message;
+    /** 额外元数据 */
     private Map<String, Object> metadata;
 
     public NotificationEventType getEventType() {

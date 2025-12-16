@@ -6,20 +6,35 @@ import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
 public class PaymentInstruction {
+    /** 请求唯一标识 */
     private String requestId;
+    /** 支付指令ID */
     private String instructionId;
+    /** 付款账户 */
     private String payerAccount;
+    /** 收款账户 */
     private String payeeAccount;
+    /** 付款客户ID */
     private String payerCustomerId;
+    /** 付款客户状态 */
     private String payerCustomerStatus;
+    /** 交易币种 */
     private String currency;
+    /** 支付金额 */
     private BigDecimal amount;
+    /** 资金用途 */
     private String purpose;
+    /** 渠道来源 */
     private String channel;
+    /** 批次ID */
     private String batchId;
+    /** 处理优先级 */
     private Integer priority;
+    /** 风险评分 */
     private BigDecimal riskScore;
+    /** 支付状态 */
     private PaymentStatus status;
+    /** 创建时间 */
     private LocalDateTime createdAt;
 
     public PaymentInstruction() {

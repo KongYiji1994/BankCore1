@@ -3,11 +3,17 @@ package com.bankcore.settlement.model;
 import java.math.BigDecimal;
 
 public class ExternalPaymentRecord {
+    /** 外部渠道指令号 */
     private String instructionId;
+    /** 外部参考号或流水号 */
     private String externalReference;
+    /** 外部记录金额 */
     private BigDecimal amount;
+    /** 交易币种 */
     private String currency;
+    /** 付款方账户 */
     private String payerAccount;
+    /** 收款方账户 */
     private String payeeAccount;
 
     public String getInstructionId() {

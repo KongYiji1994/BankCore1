@@ -4,13 +4,21 @@ import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
 public class Account {
+    /** 账户唯一标识 */
     private String accountId;
+    /** 关联客户ID */
     private String customerId;
+    /** 账户币种 */
     private String currency;
+    /** 当前可用余额 */
     private BigDecimal availableBalance;
+    /** 当前总余额（含冻结部分） */
     private BigDecimal totalBalance;
+    /** 已冻结余额 */
     private BigDecimal frozenBalance;
+    /** 账户状态 */
     private String status;
+    /** 开户时间 */
     private LocalDateTime openedAt;
 
     public Account() {

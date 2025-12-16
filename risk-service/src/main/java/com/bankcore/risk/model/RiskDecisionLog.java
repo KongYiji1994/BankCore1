@@ -4,13 +4,21 @@ import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
 public class RiskDecisionLog {
+    /** 日志主键ID */
     private Long id;
+    /** 客户ID */
     private String customerId;
+    /** 付款账户 */
     private String payerAccount;
+    /** 交易金额 */
     private BigDecimal amount;
+    /** 风险结果 */
     private String result;
+    /** 规则类型 */
     private String ruleType;
+    /** 规则ID */
     private Long ruleId;
+    /** 创建时间 */
     private LocalDateTime createdAt;
 
     public Long getId() {
