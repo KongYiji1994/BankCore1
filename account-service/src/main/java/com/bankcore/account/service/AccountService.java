@@ -6,10 +6,13 @@ import com.bankcore.common.dto.AccountDTO;
 import com.bankcore.common.error.BusinessException;
 import com.bankcore.common.error.ErrorCode;
 import java.math.BigDecimal;
+import java.util.Collections;
+import java.util.EnumMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -34,8 +37,10 @@ public class AccountService {
                           List<AccountOperationStrategy> strategies,
                           AccountDomainSupport domainSupport) {
         this.repository = repository;
-        this.strategyMap = strategies.stream()
-                .collect(Collectors.toUnmodifiableMap(AccountOperationStrategy::operationType, strategy -> strategy));
+        EnumMap<AccountOperationType, AccountOperationStrategy> collected = strategies.stream()
+                .collect(Collectors.toMap(AccountOperationStrategy::operationType, Function.identity(), (first, duplicate) -> first,
+                        () -> new EnumMap<>(AccountOperationType.class)));
+        this.strategyMap = Collections.unmodifiableMap(collected);
         this.domainSupport = domainSupport;
     }
 
