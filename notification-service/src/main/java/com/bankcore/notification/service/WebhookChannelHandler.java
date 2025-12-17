@@ -16,8 +16,8 @@ public class WebhookChannelHandler implements NotificationChannelHandler {
     private static final Logger log = LoggerFactory.getLogger(WebhookChannelHandler.class);
     private final WebClient webClient;
 
-    public WebhookChannelHandler(WebClient.Builder builder) {
-        this.webClient = builder.build();
+    public WebhookChannelHandler(WebClient webClient) {
+        this.webClient = webClient;
     }
 
     @Override
