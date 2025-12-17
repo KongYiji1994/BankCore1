@@ -30,27 +30,23 @@ public class AccountService {
     private static final Logger log = LoggerFactory.getLogger(AccountService.class);
     private static final long ACCOUNT_LOCK_TTL_SECONDS = 30L;
     private final AccountRepository repository;
-    private final Map<AccountOperationType, AccountOperationStrategy> strategyMap;
     private final AccountDomainSupport domainSupport;
     private final AccountLedgerRepository ledgerRepository;
     private final AccountLockManager lockManager;
+    private final Map<AccountOperationType, OperationDefinition> operations;
 
     /**
      * 构造函数注入仓储接口，便于单元测试与替换实现。
      */
     public AccountService(AccountRepository repository,
-                          List<AccountOperationStrategy> strategies,
                           AccountDomainSupport domainSupport,
                           AccountLedgerRepository ledgerRepository,
                           AccountLockManager lockManager) {
         this.repository = repository;
-        EnumMap<AccountOperationType, AccountOperationStrategy> collected = strategies.stream()
-                .collect(Collectors.toMap(AccountOperationStrategy::operationType, Function.identity(), (first, duplicate) -> first,
-                        () -> new EnumMap<>(AccountOperationType.class)));
-        this.strategyMap = Collections.unmodifiableMap(collected);
         this.domainSupport = domainSupport;
         this.ledgerRepository = ledgerRepository;
         this.lockManager = lockManager;
+        this.operations = Collections.unmodifiableMap(initOperations());
     }
 
     /**
@@ -127,8 +123,7 @@ public class AccountService {
     }
 
     private AccountDTO executeOperation(AccountOperationType operationType, String accountId, BigDecimal amount, String requestId) {
-        Optional<AccountOperationStrategy> strategy = Optional.ofNullable(strategyMap.get(operationType));
-        AccountOperationStrategy selected = strategy.orElseThrow(
+        OperationDefinition selected = Optional.ofNullable(operations.get(operationType)).orElseThrow(
                 () -> new BusinessException(ErrorCode.BUSINESS_RULE_VIOLATION, "Unsupported account operation: " + operationType));
         String normalizedRequestId = normalizeRequestId(requestId);
         if (selected.requiresIdempotency()) {
@@ -141,13 +136,13 @@ public class AccountService {
         }
 
         return executeWithLock(accountId, account -> {
-            selected.applyOperation(account, amount);
+            selected.handler().apply(account, amount);
             repository.update(account);
             AccountDTO dto = domainSupport.toDto(account);
             if (selected.shouldRecordLedger()) {
                 saveLedger(normalizedRequestId, accountId, amount, account, operationType);
             }
-            selected.afterCommit(accountId, amount, normalizedRequestId);
+            selected.afterCommit().accept(accountId, amount, normalizedRequestId);
             return dto;
         });
     }
@@ -182,5 +177,42 @@ public class AccountService {
                 account.getAvailableBalance(),
                 account.getFrozenBalance());
         ledgerRepository.save(entry);
+    }
+
+    private Map<AccountOperationType, OperationDefinition> initOperations() {
+        EnumMap<AccountOperationType, OperationDefinition> map = new EnumMap<>(AccountOperationType.class);
+        map.put(AccountOperationType.CREDIT, new OperationDefinition(Account::credit, true, true,
+                (accountId, amount, requestId) -> log.info("credited account {} amount {}", accountId, amount)));
+        map.put(AccountOperationType.FREEZE, new OperationDefinition(Account::prepareDebit, true, true,
+                (accountId, amount, requestId) -> log.info("frozen amount {} on account {}", amount, accountId)));
+        map.put(AccountOperationType.SETTLE, new OperationDefinition(Account::settleDebit, true, true,
+                (accountId, amount, requestId) -> log.info("settled debit amount {} on account {}", amount, accountId)));
+        map.put(AccountOperationType.UNFREEZE, new OperationDefinition(Account::releaseFrozen, true, true,
+                (accountId, amount, requestId) -> log.info("unfroze amount {} on account {}", amount, accountId)));
+        map.put(AccountOperationType.CLOSE, new OperationDefinition((account, amt) -> account.close(), false, false,
+                (accountId, amount, requestId) -> log.info("closed account {}", accountId)));
+        return map;
+    }
+
+    @FunctionalInterface
+    private interface AccountOperationHandler {
+        void apply(Account account, BigDecimal amount);
+    }
+
+    @FunctionalInterface
+    private interface TriConsumer<A, B, C> {
+        void accept(A a, B b, C c);
+    }
+
+    private record OperationDefinition(AccountOperationHandler handler,
+                                       boolean requiresIdempotency,
+                                       boolean shouldRecordLedger,
+                                       TriConsumer<String, BigDecimal, String> afterCommit) {
+        OperationDefinition {
+            if (handler == null) {
+                throw new IllegalArgumentException("Account operation handler is required");
+            }
+            afterCommit = afterCommit == null ? (id, amount, request) -> { } : afterCommit;
+        }
     }
 }
