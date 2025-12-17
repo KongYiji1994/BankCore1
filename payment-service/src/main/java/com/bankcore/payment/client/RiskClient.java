@@ -2,24 +2,29 @@ package com.bankcore.payment.client;
 
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
-import org.springframework.web.client.RestTemplate;
+import org.springframework.web.reactive.function.client.WebClient;
 
 import java.math.BigDecimal;
 
 @Component
 public class RiskClient {
-    private final RestTemplate restTemplate;
+    private final WebClient webClient;
     private final String riskServiceBaseUrl;
 
-    public RiskClient(RestTemplate restTemplate,
+    public RiskClient(WebClient webClient,
                       @Value("${risk-service.url:http://localhost:8086}") String riskServiceBaseUrl) {
-        this.restTemplate = restTemplate;
+        this.webClient = webClient;
         this.riskServiceBaseUrl = riskServiceBaseUrl;
     }
 
     public RiskDecisionResponse evaluate(BigDecimal amount, String customerId, String channel, String payerAccount, String requestId) {
         RiskRequest payload = new RiskRequest(amount, customerId, channel, payerAccount, requestId);
-        return restTemplate.postForObject(riskServiceBaseUrl + "/risk/evaluate", payload, RiskDecisionResponse.class);
+        return webClient.post()
+                .uri(riskServiceBaseUrl + "/risk/evaluate")
+                .bodyValue(payload)
+                .retrieve()
+                .bodyToMono(RiskDecisionResponse.class)
+                .block();
     }
 
     public static class RiskRequest {

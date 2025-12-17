@@ -2,22 +2,26 @@ package com.bankcore.payment.client;
 
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
-import org.springframework.web.client.RestTemplate;
+import org.springframework.web.reactive.function.client.WebClient;
 
 @Component
 public class CustomerClient {
-    private final RestTemplate restTemplate;
+    private final WebClient webClient;
     private final String customerServiceBaseUrl;
 
-    public CustomerClient(RestTemplate restTemplate,
+    public CustomerClient(WebClient webClient,
                           @Value("${customer-service.url:http://localhost:8082}") String customerServiceBaseUrl) {
-        this.restTemplate = restTemplate;
+        this.webClient = webClient;
         this.customerServiceBaseUrl = customerServiceBaseUrl;
     }
 
     public CustomerProfile getCustomer(String customerId) {
         String url = customerServiceBaseUrl + "/customers/" + customerId;
-        return restTemplate.getForObject(url, CustomerProfile.class);
+        return webClient.get()
+                .uri(url)
+                .retrieve()
+                .bodyToMono(CustomerProfile.class)
+                .block();
     }
 
     public static class CustomerProfile {
