@@ -4,11 +4,9 @@ import com.bankcore.notification.model.NotificationChannel;
 import com.bankcore.notification.model.NotificationMessage;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.http.HttpEntity;
-import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Component;
-import org.springframework.web.client.RestTemplate;
+import org.springframework.web.reactive.function.client.WebClient;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -16,7 +14,11 @@ import java.util.Map;
 @Component
 public class WebhookChannelHandler implements NotificationChannelHandler {
     private static final Logger log = LoggerFactory.getLogger(WebhookChannelHandler.class);
-    private final RestTemplate restTemplate = new RestTemplate();
+    private final WebClient webClient;
+
+    public WebhookChannelHandler(WebClient.Builder builder) {
+        this.webClient = builder.build();
+    }
 
     @Override
     public boolean supports(NotificationChannel channel) {
@@ -32,9 +34,13 @@ public class WebhookChannelHandler implements NotificationChannelHandler {
             payload.put("subject", message.getSubject());
             payload.put("content", message.getContent());
 
-            HttpHeaders headers = new HttpHeaders();
-            headers.setContentType(MediaType.APPLICATION_JSON);
-            restTemplate.postForEntity(message.getDestination(), new HttpEntity<Map<String, Object>>(payload, headers), Void.class);
+            webClient.post()
+                    .uri(message.getDestination())
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .bodyValue(payload)
+                    .retrieve()
+                    .toBodilessEntity()
+                    .block();
             log.info("Webhook notification posted to {} for {}", message.getDestination(), message.getReferenceId());
         } catch (Exception e) {
             log.warn("Webhook notification failed to {}: {}", message.getDestination(), e.getMessage());

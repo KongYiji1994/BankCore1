@@ -6,7 +6,7 @@ import com.bankcore.common.dto.AccountDTO;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
-import org.springframework.web.client.RestTemplate;
+import org.springframework.web.reactive.function.client.WebClient;
 
 import javax.validation.Valid;
 import javax.validation.constraints.NotBlank;
@@ -18,13 +18,13 @@ import java.util.Collections;
 @RequestMapping("/customers")
 public class CustomerController {
     private final CustomerService customerService;
-    private final RestTemplate restTemplate;
+    private final WebClient webClient;
     private final String accountServiceBaseUrl;
 
-    public CustomerController(CustomerService customerService, RestTemplate restTemplate,
+    public CustomerController(CustomerService customerService, WebClient webClient,
                               @Value("${account-service.url:http://localhost:8081}") String accountServiceBaseUrl) {
         this.customerService = customerService;
-        this.restTemplate = restTemplate;
+        this.webClient = webClient;
         this.accountServiceBaseUrl = accountServiceBaseUrl;
     }
 
@@ -49,7 +49,11 @@ public class CustomerController {
     @GetMapping("/{id}/accounts")
     public ResponseEntity<List<AccountDTO>> accounts(@PathVariable String id) {
         String url = accountServiceBaseUrl + "/accounts?customerId=" + id;
-        AccountDTO[] response = restTemplate.getForObject(url, AccountDTO[].class);
+        AccountDTO[] response = webClient.get()
+                .uri(url)
+                .retrieve()
+                .bodyToMono(AccountDTO[].class)
+                .block();
         List<AccountDTO> payload = response == null ? Collections.<AccountDTO>emptyList() : Arrays.asList(response);
         return ResponseEntity.ok(payload);
     }
