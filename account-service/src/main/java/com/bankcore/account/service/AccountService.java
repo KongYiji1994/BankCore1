@@ -7,19 +7,16 @@ import com.bankcore.account.repository.AccountRepository;
 import com.bankcore.common.dto.AccountDTO;
 import com.bankcore.common.error.BusinessException;
 import com.bankcore.common.error.ErrorCode;
-import java.math.BigDecimal;
-import java.util.Collections;
-import java.util.EnumMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Optional;
-import java.util.UUID;
-import java.util.function.Function;
-import java.util.stream.Collectors;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+
+import java.math.BigDecimal;
+import java.util.List;
+import java.util.Optional;
+import java.util.UUID;
+import java.util.stream.Collectors;
 
 /**
  * 账户核心服务，负责账户开户、收付款记账、冻结与解冻、关闭等全生命周期操作。
@@ -28,27 +25,20 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 public class AccountService {
     private static final Logger log = LoggerFactory.getLogger(AccountService.class);
-    private static final long ACCOUNT_LOCK_TTL_SECONDS = 30L;
     private final AccountRepository repository;
-    private final Map<AccountOperationType, AccountOperationStrategy> strategyMap;
-    private final AccountDomainSupport domainSupport;
     private final AccountLedgerRepository ledgerRepository;
     private final AccountLockManager lockManager;
 
     /**
+     * 锁过期时间（秒），防止线程异常退出导致锁长时间占用。
+     */
+    private static final long ACCOUNT_LOCK_TTL_SECONDS = 30L;
+
+    /**
      * 构造函数注入仓储接口，便于单元测试与替换实现。
      */
-    public AccountService(AccountRepository repository,
-                          List<AccountOperationStrategy> strategies,
-                          AccountDomainSupport domainSupport,
-                          AccountLedgerRepository ledgerRepository,
-                          AccountLockManager lockManager) {
+    public AccountService(AccountRepository repository, AccountLedgerRepository ledgerRepository, AccountLockManager lockManager) {
         this.repository = repository;
-        EnumMap<AccountOperationType, AccountOperationStrategy> collected = strategies.stream()
-                .collect(Collectors.toMap(AccountOperationStrategy::operationType, Function.identity(), (first, duplicate) -> first,
-                        () -> new EnumMap<>(AccountOperationType.class)));
-        this.strategyMap = Collections.unmodifiableMap(collected);
-        this.domainSupport = domainSupport;
         this.ledgerRepository = ledgerRepository;
         this.lockManager = lockManager;
     }
@@ -62,7 +52,7 @@ public class AccountService {
         Account account = new Account(accountId, customerId, currency, openingBalance);
         repository.save(account);
         log.info("created account {} for customer {} with currency {}", accountId, customerId, currency);
-        return domainSupport.toDto(account);
+        return toDto(account);
     }
 
     /**
@@ -70,7 +60,12 @@ public class AccountService {
      */
     @Transactional
     public AccountDTO credit(String accountId, BigDecimal amount, String requestId) {
-        return executeOperation(AccountOperationType.CREDIT, accountId, amount, requestId);
+        return idempotentOperation(requestId, accountId, "CREDIT", amount, account -> {
+            account.credit(amount);
+            repository.update(account);
+            log.info("credited account {} amount {}", accountId, amount);
+            return toDto(account);
+        });
     }
 
     /**
@@ -78,7 +73,12 @@ public class AccountService {
      */
     @Transactional
     public AccountDTO freezeAmount(String accountId, BigDecimal amount, String requestId) {
-        return executeOperation(AccountOperationType.FREEZE, accountId, amount, requestId);
+        return idempotentOperation(requestId, accountId, "FREEZE", amount, account -> {
+            account.prepareDebit(amount);
+            repository.update(account);
+            log.info("frozen amount {} on account {}", amount, accountId);
+            return toDto(account);
+        });
     }
 
     /**
@@ -86,7 +86,12 @@ public class AccountService {
      */
     @Transactional
     public AccountDTO settle(String accountId, BigDecimal amount, String requestId) {
-        return executeOperation(AccountOperationType.SETTLE, accountId, amount, requestId);
+        return idempotentOperation(requestId, accountId, "SETTLE", amount, account -> {
+            account.settleDebit(amount);
+            repository.update(account);
+            log.info("settled debit amount {} on account {}", amount, accountId);
+            return toDto(account);
+        });
     }
 
     /**
@@ -94,7 +99,12 @@ public class AccountService {
      */
     @Transactional
     public AccountDTO unfreeze(String accountId, BigDecimal amount, String requestId) {
-        return executeOperation(AccountOperationType.UNFREEZE, accountId, amount, requestId);
+        return idempotentOperation(requestId, accountId, "UNFREEZE", amount, account -> {
+            account.releaseFrozen(amount);
+            repository.update(account);
+            log.info("unfroze amount {} on account {}", amount, accountId);
+            return toDto(account);
+        });
     }
 
     /**
@@ -102,67 +112,91 @@ public class AccountService {
      */
     @Transactional
     public AccountDTO close(String accountId) {
-        return executeOperation(AccountOperationType.CLOSE, accountId, BigDecimal.ZERO, null);
+        return executeWithLock(accountId, account -> {
+            account.close();
+            repository.update(account);
+            log.info("closed account {}", accountId);
+            return toDto(account);
+        });
     }
 
     /**
      * 按账户号查询账户。
      */
     public AccountDTO get(String accountId) {
-        return domainSupport.toDto(domainSupport.findAccount(accountId, true));
+        return toDto(findAccount(accountId, true));
     }
 
     /**
      * 查询所有账户列表。
      */
     public List<AccountDTO> list() {
-        return repository.findAll().stream().map(domainSupport::toDto).collect(Collectors.toList());
+        return repository.findAll().stream().map(this::toDto).collect(Collectors.toList());
     }
 
     /**
      * 查询指定客户下的所有账户。
      */
     public List<AccountDTO> listByCustomer(String customerId) {
-        return repository.findByCustomer(customerId).stream().map(domainSupport::toDto).collect(Collectors.toList());
+        return repository.findByCustomer(customerId).stream().map(this::toDto).collect(Collectors.toList());
     }
 
-    private AccountDTO executeOperation(AccountOperationType operationType, String accountId, BigDecimal amount, String requestId) {
-        Optional<AccountOperationStrategy> strategy = Optional.ofNullable(strategyMap.get(operationType));
-        AccountOperationStrategy selected = strategy.orElseThrow(
-                () -> new BusinessException(ErrorCode.BUSINESS_RULE_VIOLATION, "Unsupported account operation: " + operationType));
-        String normalizedRequestId = normalizeRequestId(requestId);
-        if (selected.requiresIdempotency()) {
-            Optional<AccountLedgerEntry> existing = ledgerRepository.findByRequestId(normalizedRequestId);
-            if (existing.isPresent()) {
-                log.info("ledger request {} for account {} already processed, skip duplicate {}", normalizedRequestId, accountId,
-                        operationType);
-                return domainSupport.toDto(domainSupport.findAccount(accountId, true));
-            }
+    /**
+     * 获取有效账户，默认不包含已关闭账户。
+     */
+    private Account findAccount(String accountId) {
+        return findAccount(accountId, false);
+    }
+
+    /**
+     * 获取账户，可配置是否允许返回已关闭账户。
+     */
+    private Account findAccount(String accountId, boolean includeClosed) {
+        Account account = repository.findById(accountId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.NOT_FOUND, "Account not found"));
+        if (!includeClosed && "CLOSED".equalsIgnoreCase(account.getStatus())) {
+            throw new BusinessException(ErrorCode.BUSINESS_RULE_VIOLATION, "Account is closed");
         }
-
-        return executeWithLock(accountId, account -> {
-            selected.applyOperation(account, amount);
-            repository.update(account);
-            AccountDTO dto = domainSupport.toDto(account);
-            if (selected.shouldRecordLedger()) {
-                saveLedger(normalizedRequestId, accountId, amount, account, operationType);
-            }
-            selected.afterCommit(accountId, amount, normalizedRequestId);
-            return dto;
-        });
+        return account;
     }
 
-    private <T> T executeWithLock(String accountId, Function<Account, T> callback) {
+    /**
+     * 领域对象转 DTO，供外部接口返回。
+     */
+    private AccountDTO toDto(Account account) {
+        return new AccountDTO(account.getAccountId(), account.getCustomerId(), account.getCurrency(), account.getTotalBalance(),
+                account.getAvailableBalance(), account.getFrozenBalance(), account.getStatus());
+    }
+
+    /**
+     * 通用账户加锁执行模板：先获取 Redis 分布式锁，确保同一账户的修改串行，再执行业务逻辑。
+     */
+    private <T> T executeWithLock(String accountId, AccountOperation<T> operation) {
         boolean locked = lockManager.tryLock(accountId, ACCOUNT_LOCK_TTL_SECONDS);
         if (!locked) {
             throw new BusinessException(ErrorCode.PROCESSING, "账户正在处理并发交易，请稍后重试");
         }
         try {
-            Account account = domainSupport.findAccount(accountId);
-            return callback.apply(account);
+            Account account = findAccount(accountId);
+            return operation.apply(account);
         } finally {
             lockManager.unlock(accountId);
         }
+    }
+
+    private AccountDTO idempotentOperation(String requestId, String accountId, String operation, BigDecimal amount,
+                                           AccountOperation<AccountDTO> callback) {
+        String normalizedRequestId = normalizeRequestId(requestId);
+        Optional<AccountLedgerEntry> existing = ledgerRepository.findByRequestId(normalizedRequestId);
+        if (existing.isPresent()) {
+            log.info("ledger request {} for account {} already processed, skipping duplicate {}", normalizedRequestId, accountId, operation);
+            return toDto(findAccount(accountId));
+        }
+        return executeWithLock(accountId, account -> {
+            AccountDTO result = callback.apply(account);
+            saveLedger(normalizedRequestId, accountId, operation, amount, account);
+            return result;
+        });
     }
 
     private String normalizeRequestId(String requestId) {
@@ -171,16 +205,24 @@ public class AccountService {
                 : requestId.trim();
     }
 
-    private void saveLedger(String requestId, String accountId, BigDecimal amount, Account account, AccountOperationType operationType) {
+    private void saveLedger(String requestId, String accountId, String operation, BigDecimal amount, Account account) {
         AccountLedgerEntry entry = new AccountLedgerEntry(
                 UUID.randomUUID().toString(),
-                requestId,
+                (requestId == null || requestId.trim().isEmpty()) ? UUID.randomUUID().toString() : requestId.trim(),
                 accountId,
-                operationType.name(),
+                operation,
                 amount,
                 account.getTotalBalance(),
                 account.getAvailableBalance(),
                 account.getFrozenBalance());
         ledgerRepository.save(entry);
+    }
+
+    /**
+     * 账户操作模板接口，便于在加锁后传入不同的业务逻辑。
+     */
+    @FunctionalInterface
+    private interface AccountOperation<T> {
+        T apply(Account account);
     }
 }
