@@ -21,8 +21,8 @@ public class WebhookChannelHandler implements NotificationChannelHandler {
     }
 
     @Override
-    public boolean supports(NotificationChannel channel) {
-        return NotificationChannel.WEBHOOK == channel;
+    public NotificationChannel getChannel() {
+        return NotificationChannel.WEBHOOK;
     }
 
     @Override

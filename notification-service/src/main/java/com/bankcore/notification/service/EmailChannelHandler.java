@@ -18,8 +18,8 @@ public class EmailChannelHandler implements NotificationChannelHandler {
     }
 
     @Override
-    public boolean supports(NotificationChannel channel) {
-        return NotificationChannel.EMAIL == channel;
+    public NotificationChannel getChannel() {
+        return NotificationChannel.EMAIL;
     }
 
     @Override
