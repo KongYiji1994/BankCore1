@@ -8,7 +8,9 @@ import org.slf4j.LoggerFactory;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 
+import java.util.EnumMap;
 import java.util.List;
+import java.util.Map;
 
 /**
  * 通知分发器：根据消息通道路由到具体的发送处理器，异步执行避免阻塞业务线程。
@@ -16,13 +18,24 @@ import java.util.List;
 @Service
 public class NotificationDispatcher {
     private static final Logger log = LoggerFactory.getLogger(NotificationDispatcher.class);
-    private final List<NotificationChannelHandler> handlers;
+    private final Map<NotificationChannel, NotificationChannelHandler> handlers;
 
     /**
      * 构造注入所有通道处理器。
      */
     public NotificationDispatcher(List<NotificationChannelHandler> handlers) {
-        this.handlers = handlers;
+        this.handlers = new EnumMap<>(NotificationChannel.class);
+        for (NotificationChannelHandler handler : handlers) {
+            NotificationChannel channel = handler.getChannel();
+            if (channel == null) {
+                log.warn("Handler {} returned null channel and will be ignored", handler.getClass().getSimpleName());
+                continue;
+            }
+            NotificationChannelHandler existing = this.handlers.put(channel, handler);
+            if (existing != null) {
+                log.warn("Duplicate handler for channel {} detected: {} replaced {}", channel, handler.getClass().getSimpleName(), existing.getClass().getSimpleName());
+            }
+        }
     }
 
     /**
@@ -56,11 +69,10 @@ public class NotificationDispatcher {
             log.warn("No channel provided for reference {}", message.getReferenceId());
             return;
         }
-        for (NotificationChannelHandler handler : handlers) {
-            if (handler.supports(channel)) {
-                handler.send(message);
-                return;
-            }
+        NotificationChannelHandler handler = handlers.get(channel);
+        if (handler != null) {
+            handler.send(message);
+            return;
         }
         log.warn("No handler configured for channel {}", channel);
     }

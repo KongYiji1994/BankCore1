@@ -4,7 +4,7 @@ import com.bankcore.notification.model.NotificationChannel;
 import com.bankcore.notification.model.NotificationMessage;
 
 public interface NotificationChannelHandler {
-    boolean supports(NotificationChannel channel);
+    NotificationChannel getChannel();
 
     void send(NotificationMessage message);
 }
